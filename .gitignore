@@ -1,0 +1,11 @@
+*\.swp
+__pycache__
+twc_games
+.vscode/
+.vector_cache
+.python-version
+*\.csv
+*\.log
+*\.heart
+*\.pth
+\.~*
