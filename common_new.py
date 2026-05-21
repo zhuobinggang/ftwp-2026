@@ -1,7 +1,8 @@
 import re
 import logging
+import os
 
-GAME_BASE_PATH = "~/research/datasets/ftwp/games"
+GAME_BASE_PATH = os.path.expanduser("~/research/datasets/ftwp/games")
 
 def get_time_str():
     from datetime import datetime
