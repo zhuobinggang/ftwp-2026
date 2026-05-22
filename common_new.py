@@ -3,7 +3,7 @@ import logging
 import os
 
 GAME_BASE_PATH = os.path.expanduser("~/research/datasets/ftwp/games")
-CHECKPOINT_DIR = os.path.expanduser("~/research/checkpoints/ftwp_our_navigator_only")
+CHECKPOINT_DIR = os.path.abspath("./checkpoints/ftwp_our_navigator_only")
 
 def get_time_str():
     from datetime import datetime
