@@ -389,7 +389,7 @@ def train_repeat(testing = False):
     else:
         repeat = 3
         epoch = 5
-    print(f'Training with {repeat} repeats, {epoch} epochs each, {MAX_TEST_STEP} max test steps. Train split: {TRAIN_SPLIT}, valid split: {VALID_SPLIT}, test split: {TEST_SPLIT}.')
+    logger.warning(f'Training with {repeat} repeats, {epoch} epochs each, {MAX_TEST_STEP} max test steps. Train split: {TRAIN_SPLIT}, valid split: {VALID_SPLIT}, test split: {TEST_SPLIT}.')
     INIC_FUNC = Model_ucb1
     ucb1_on = 'with UCB1' if INIC_FUNC == Model_ucb1 else 'w/o UCB1'
     for rp in range(repeat):
@@ -400,7 +400,7 @@ def train_repeat(testing = False):
             train(model, split=TRAIN_SPLIT, log_name=f'{rp}')
             score, avg_step = valid_all(model, split=VALID_SPLIT, game_init_func=GAME_INIT_FUNC)
             logger.error(f'{get_time_str()} Full valid score ({rp}) {ucb1_on}: {score}, average step {avg_step}')
-            print(f'{get_time_str()} Full valid score ({rp}) {ucb1_on}: {score}, average step {avg_step}')
+            logger.warning(f'{get_time_str()} Full valid score ({rp}) {ucb1_on}: {score}, average step {avg_step}')
             # get_writer().add_scalar(f'Score/valid_rp{rp}', score, i)
             if score > max_score:
                 max_score = score
