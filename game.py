@@ -164,7 +164,7 @@ class Game_handle_worldmap(Game_move_action_augment):
     def navigate_to_item(self, itemName):
         item = self.itemMap[itemName]
         if item['room'] == 'inventory':
-            logger.warning(f'Item {itemName} is in inventory, cannot navigate to it.')
+            logger.error(f'Item {itemName} is in inventory, cannot navigate to it.')
             return []
         target_room = item['room']
         if target_room not in self.worldMap:
@@ -299,44 +299,6 @@ def test_default_game():
     print(game.filtered_available_commands())
     return game
 
-# 2026.1.23 实验用，结束后删除: 在测试时不过滤指令
-KEEP_UNNECESSARY_COMMANDS = True
-def test_game(game: Game_move_action_augment, model = Fake_model(), max_step = 100):
-    # import game_for_llm
-    # max_step = 50 # 2025.8.28 实验用，实验结束后删除
-    # dbg('Testing: Model eval on, model cuda on.')
-    if model.training:
-        model.eval()
-        dbg('Model eval on.')
-    if not next(model.parameters()).is_cuda:
-        model.cuda()
-        dbg('Model cuda on.')
-    obs, info = game.reset()
-    counter = 0
-    final_action = ''
-    while counter < max_step:
-        game_state = game_state_from_game(game)
-        game_state.admissible_commands = game.get_admissible_commands() # BUG: 如果在game_state_from_game中调用这个会导致无限循环
-        if KEEP_UNNECESSARY_COMMANDS: # 2026.1.23 实验用，不影响，但是测试后需要把KEEP_UNNECESSARY_COMMANDS关闭
-            game_state.filtered_commands = game_state.admissible_commands
-        action = model.predict(game_state)
-        #print(action)
-        prev_moves = game.info['moves']
-        obs, reward, done, info = game.act(action)
-        current_moves = info['moves']
-        counter += max(1, current_moves - prev_moves) # 考虑到可能的多步行动（比如高级命令）
-        final_action = action
-        if done:
-            break
-    # result = (counter, info['score'], info['max_score'], info)
-    logger.warning(f'Game done: {info["score"]} / {info["max_score"]}, steps {counter}, won: {info["won"]}, lost: {info["lost"]}, path: {game.game_path}')
-    if info['lost']:
-        from model_danger_command import use_bert_to_identify_danger_command
-        is_danger = use_bert_to_identify_danger_command(game_state.recipe_clean(), final_action, logging=True)
-        logger.warning(f'Game lost: final action: {final_action}, is_danger: {is_danger}')
-    result = TestResult(counter, info['score'], info['max_score'], info)
-    return result
-
 @lru_cache(maxsize=128) # 一个episode最多为100步，因此128足够了
 def clean_action_obs(action, obs):
     ACT, OBS = action, obs
@@ -402,7 +364,7 @@ def test_game(game: Game_handle_worldmap, model = Fake_model(), max_step = 100, 
         if done:
             break
     # result = (counter, info['score'], info['max_score'], info)
-    logger.warning(f'Game done: {info["score"]} / {info["max_score"]}, steps {counter}, won: {info["won"]}, lost: {info["lost"]}, path: {game.game_path}')
+    logger.debug(f'Game done: {info["score"]} / {info["max_score"]}, steps {counter}, won: {info["won"]}, lost: {info["lost"]}, path: {game.game_path}')
     if info['lost']:
         logger.warning(f'Game lost: final action: {final_action}')
     result = TestResult(counter, info['score'], info['max_score'], info)
