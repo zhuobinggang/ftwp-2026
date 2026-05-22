@@ -377,12 +377,19 @@ def valid_all(model: Model, split = 'partial_valid', game_init_func = None):
     average_step = np.mean(steps)
     return score / max_score, average_step
 
-def train_repeat(repeat = 2, epoch = 2):
-    global BEST_MODELS, MAX_TEST_STEP
-    # TRAIN_SPLIT = 'fake_train_100'
-    # VALID_SPLIT = 'fake_valid_10'
-    # TEST_SPLIT = 'fake_test_10'
-    # MAX_TEST_STEP = 10
+def train_repeat(testing = False):
+    global BEST_MODELS, MAX_TEST_STEP, TRAIN_SPLIT, VALID_SPLIT, TEST_SPLIT
+    if testing:
+        MAX_TEST_STEP = 20
+        TRAIN_SPLIT = 'fake_train_100'
+        VALID_SPLIT = 'fake_valid_10'
+        TEST_SPLIT = 'fake_test_10'
+        repeat = 2
+        epoch = 2
+    else:
+        repeat = 3
+        epoch = 5
+    print(f'Training with {repeat} repeats, {epoch} epochs each, {MAX_TEST_STEP} max test steps. Train split: {TRAIN_SPLIT}, valid split: {VALID_SPLIT}, test split: {TEST_SPLIT}.')
     INIC_FUNC = Model_ucb1
     ucb1_on = 'with UCB1' if INIC_FUNC == Model_ucb1 else 'w/o UCB1'
     for rp in range(repeat):
