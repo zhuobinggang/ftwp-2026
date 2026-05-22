@@ -134,6 +134,7 @@ def dataloader_get(split = 'train'):
     train_data = TensorDataset(all_input_ids, all_attention_mask, all_label_ids, all_token_type_ids)
     train_sampler = RandomSampler(train_data)
     train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=BATCH_SIZE)
+    logger.warning(f'Dataloader for split {split} created with {len(bert_inputs)} samples, batch size {BATCH_SIZE}, total batches {len(train_dataloader)}.')
     return train_dataloader
 
 @torch.no_grad()
