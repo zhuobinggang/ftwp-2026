@@ -377,7 +377,7 @@ class Game_state_clean(Game_state):
 
 
 
-def test_game(game: Game_handle_worldmap, model = Fake_model(), max_step = 100):
+def test_game(game: Game_handle_worldmap, model = Fake_model(), max_step = 100, need_print = False):
     # import game_for_llm
     # max_step = 50 # 2025.8.28 实验用，实验结束后删除
     # dbg('Testing: Model eval on, model cuda on.')
@@ -392,9 +392,10 @@ def test_game(game: Game_handle_worldmap, model = Fake_model(), max_step = 100):
     final_action = ''
     while counter < max_step:
         action = model.predict(game)
-        #print(action)
         prev_moves = game.info['moves']
         obs, reward, done, info = game.act(action)
+        if need_print:
+            print(f'{action} => {obs}')
         current_moves = info['moves']
         counter += max(1, current_moves - prev_moves) # 考虑到可能的多步行动（比如高级命令）
         final_action = action

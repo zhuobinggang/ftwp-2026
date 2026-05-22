@@ -32,7 +32,7 @@ MAX_TEST_STEP = 100
 MAX_TOKEN_SIZE = 342
 NEGATIVE_SAMPLE_SIZE = 4
 
-BATCH_SIZE = 4
+BATCH_SIZE = 16
 
 DANGER_FILTER_ON = False # NOTE: 对于navigator only模型，danger filter不需要打开
 
@@ -183,9 +183,10 @@ class Model(nn.Module):
         result = get_next_command_batch(self.bert, game_state)
         return result.command
     def save_checkpoint(self, base_path = 'checkpoints', epoch = -1, valid_score = -1):
-        path = f'{base_path}/{self.prefix}_epoch_{epoch}.pth'
+        # path = f'{base_path}/{self.prefix}_epoch_{epoch}.pth'
+        path = f'{base_path}/{self.prefix}_best.pth'
         torch.save({
-            'iteration': epoch,
+            'epoch': epoch,
             'state': self.state_dict(),
             'valid_score': valid_score,
         }, path)
@@ -194,6 +195,7 @@ class Model(nn.Module):
         checkpoint = torch.load(path, map_location='cpu', weights_only=True)
         self.load_state_dict(checkpoint['state'])
         self.valid_score = checkpoint.get('valid_score', -1)
+        self.stop_epoch = checkpoint.get('epoch', -1)
 
 
 # vvvvv with UCB1 vvvvv
@@ -230,7 +232,7 @@ def choose_action_ubc1(logits, action_visited_count, alpha=1):
 class Model_ucb1(Model):
     def __init__(self):
         super().__init__()
-        self.prefix = 'roberta_ours_ucb1'
+        self.prefix = 'Model_ucb1'
         self.reset_state_action_count()
     def incresase_state_action_count(self, key, action):
         self.state_action_count[key][action] += 1
@@ -347,7 +349,7 @@ def train(model, split = 'train', log_name = ''):
         optimizer.step()
         optimizer.zero_grad()
 
-def get_model(checkpoint_path = None, init_func = Model):
+def get_model(checkpoint_path = None, init_func = Model_ucb1):
     model = init_func()
     model.prefix = 'roberta_theirs'
     model.init_bert()
@@ -377,9 +379,9 @@ def valid_all(model: Model, split = 'partial_valid', game_init_func = None):
 
 def train_repeat(repeat = 2, epoch = 2):
     global BEST_MODELS, MAX_TEST_STEP
-    TRAIN_SPLIT = 'fake_train_100'
-    VALID_SPLIT = 'fake_valid_10'
-    TEST_SPLIT = 'fake_test_10'
+    # TRAIN_SPLIT = 'fake_train_100'
+    # VALID_SPLIT = 'fake_valid_10'
+    # TEST_SPLIT = 'fake_test_10'
     # MAX_TEST_STEP = 10
     INIC_FUNC = Model_ucb1
     ucb1_on = 'with UCB1' if INIC_FUNC == Model_ucb1 else 'w/o UCB1'
