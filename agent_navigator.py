@@ -19,7 +19,7 @@ import os
 import common_new as common
 from game import Game_with_navigator, Game_state_clean, Game_state, test_game
 
-
+LEARNING_RATE = 2e-5
 CSV_SUFFIX = '_with_navigator'
 SAVE_DIR = common.CHECKPOINT_DIR
 assert os.path.exists(SAVE_DIR), f"Save dir {SAVE_DIR} does not exist!"
@@ -333,7 +333,7 @@ def train(model, split = 'train', log_name = ''):
     # model.cuda()
     model.train()
     logger.debug('Model train on.')
-    optimizer = optim.AdamW(model.parameters(), lr=1e-5) # 从1e-3到2e-5
+    optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE) # 从1e-3到2e-5
     model, optimizer, train_dataloader = accelerator.prepare(
         model, optimizer, train_dataloader
     )
@@ -390,8 +390,8 @@ def train_repeat(testing = False):
         repeat = 2
         epoch = 2
     else:
-        repeat = 3
-        epoch = 5
+        repeat = 1
+        epoch = 6
     logger.warning(f'Training with {repeat} repeats, {epoch} epochs each, {MAX_TEST_STEP} max test steps. Train split: {TRAIN_SPLIT}, valid split: {VALID_SPLIT}, test split: {TEST_SPLIT}.')
     INIC_FUNC = Model_ucb1
     ucb1_on = 'with UCB1' if INIC_FUNC == Model_ucb1 else 'w/o UCB1'
