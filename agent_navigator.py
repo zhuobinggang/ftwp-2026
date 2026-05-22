@@ -337,6 +337,8 @@ def train(model, split = 'train', log_name = ''):
         model, optimizer, train_dataloader
     )
     for batch_idx, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
+        if batch_idx % 1000 == 0:
+            logger.warning(f'Training iteration {batch_idx}')
         input_ids, input_mask, label_ids, token_type_ids = batch
         # NOTE: 2025.5.11 RoBERTa don't use token_type_ids! Error happens if use it!
         outputs = model.bert(input_ids=input_ids.to(DEVICE), 
