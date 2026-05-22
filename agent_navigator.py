@@ -294,7 +294,7 @@ class Model_ucb1(Model):
         return danger_action_mask
     def predict(self, game_state:Game_state):
         # NOTE: 更新世界地图(根据上一步动作的结果)，只要发生移动必须对链接进行更新
-        all_actions = game_state.filtered_available_commands()
+        all_actions = game_state.get_admissible_commands()
         self.reset_state_action_count_if_need(game_state)
         masked_state_action_executed_count = self.calculated_state_action_count(game_state, all_actions)
         if DANGER_FILTER_ON: # NOTE: 2025.5.16 使用bert来判断危险指令
