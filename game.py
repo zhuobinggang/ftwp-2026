@@ -28,9 +28,9 @@ def init_env(game_file):
 TestResult = recordclass('TestResult', 'step score max_score info')
 
 class Game:
-    def __init__(self, game_path):
+    def __init__(self, game_path, need_init_env = True):
         self.game_path = game_path
-        self.env = init_env(game_path)
+        self.env = init_env(game_path) if need_init_env else None
         self.obs, self.info = None, None
         self.reward, self.done = 0, False
         self.room = ''
@@ -57,6 +57,10 @@ class Game:
             return common.handle_inventory_text(self.inventory_raw)
     def description_clean(self):
         return common.description_simplify(self.description_raw)
+    def get_admissible_commands(self):
+        return common.filter_commands_default(self.info['admissible_commands'])
+    def available_commands_text(self):
+        return common.actions_to_list_number(self.get_admissible_commands())
 
 
 class Fake_model:
@@ -78,8 +82,8 @@ class Fake_model:
 # ============
 
 class Game_with_history(Game):
-    def __init__(self, game_path):
-        super().__init__(game_path)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.action_obs_pairs = []
     def act(self, action):
         self.obs, self.reward, self.done, self.info = self.env.step(action)
@@ -87,10 +91,18 @@ class Game_with_history(Game):
         return self.obs, self.reward, self.done, self.info
     def clean_action_obs_pairs(self):
         return [clean_action_obs(action, obs) for action, obs in self.action_obs_pairs]
+    def action_history(self, history_window = 100, seperator='>', no_action_text=''):
+        action_obs_pairs = self.clean_action_obs_pairs()
+        action_history_text = common.action_obs_pairs_to_history(action_obs_pairs, seperator=seperator, no_action_text=no_action_text, history_window = history_window)        
+        return action_history_text
+    def action_history_simple(self, history_window = 5, seperator='>', no_action_text='empty'):
+        action_obs_pairs = self.clean_action_obs_pairs()
+        action_history_text = common.action_obs_pairs_to_history_simple(action_obs_pairs, seperator=seperator, no_action_text=no_action_text, history_window = history_window)        
+        return action_history_text
     
 class Game_handle_recipe(Game_with_history):
-    def __init__(self, game_path):
-        super().__init__(game_path)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.recipe_raw = ''
         self.recipe = ''
         self.obs_raw = ''
@@ -104,8 +116,8 @@ class Game_handle_recipe(Game_with_history):
         self.action_obs_pairs.append((action, obs)) # 不在这里处理，而是放到game_state中处理
         self.obs = obs
         return self.obs, self.reward, self.done, self.info
-    def get_admissible_commands(self):
-        return common.filter_commands_default(self.info['admissible_commands'])
+    def recipe_clean(self):
+        return self.recipe
     
     
 # NOTE: 在移动命令被执行后，obs改为prev_room to current_room。这样能够给模型一个直观的记忆。因为在prompt中没有上一个房间的信息，应该很有帮助。
@@ -337,82 +349,60 @@ def clean_action_obs(action, obs):
     return ACT, OBS
 
 # 包含了所有需要的信息，不包含textworld环境细节
-class Game_state:
+class Game_state(Game_handle_recipe):
     def __init__(self):
-        self.room = ''
-        self.description_raw = ''
-        self.recipe_raw = ''
-        self.recipe_clean_cache = ''
-        self.inventory_raw = ''
-        self.action_obs_pairs = []
-        self.admissible_commands = []
-        self.filtered_commands = None
-        self.worldMap = {}
-    def recipe_clean(self):
-        if self.recipe_raw == '':
-            return ''
-        if self.recipe_clean_cache != '':
-            return self.recipe_clean_cache
-        else:
-            self.recipe_clean_cache = common.extract_recipe(self.recipe_raw, need_clean=True)
-        return self.recipe_clean_cache
-    def inventory_clean(self):
-        if self.inventory_raw == '':
-            return ''
-        return common.handle_inventory_text(self.inventory_raw)
-    def ingredients_from_recipe(self):
-        return common.ingredients_from_recipe(self.recipe_clean())
-    def description_clean(self):
-        return common.description_simplify(self.description_raw)
-    def clean_action_obs_pairs(self):
-        return [clean_action_obs(action, obs) for action, obs in self.action_obs_pairs]
-    def action_history(self, history_window = 100, seperator='>', no_action_text=''):
-        action_obs_pairs = self.clean_action_obs_pairs()
-        action_history_text = common.action_obs_pairs_to_history(action_obs_pairs, seperator=seperator, no_action_text=no_action_text, history_window = history_window)        
-        return action_history_text
-    def action_history_simple(self, history_window = 5, seperator='>', no_action_text='empty'):
-        action_obs_pairs = self.clean_action_obs_pairs()
-        action_history_text = common.action_obs_pairs_to_history_simple(action_obs_pairs, seperator=seperator, no_action_text=no_action_text, history_window = history_window)        
-        return action_history_text
-    def filtered_available_commands(self):
-        if self.filtered_commands is not None:
-            return self.filtered_commands
-        self.filtered_commands = common.filter_commands_default(self.admissible_commands)
-        return self.filtered_commands
-    def available_commands_text(self):
-        return common.actions_to_list_number(self.filtered_available_commands())
+        game_path = None
+        super().__init__(game_path, need_init_env=False)
     def __str__(self):
         return f'Game_state(room={self.room}, description={self.description_clean()}, recipe={self.recipe_clean()}, inventory={self.inventory_clean()}, action_obs_pairs={self.action_history()}, admissible_commands={self.available_commands_text()})'
 
+class Game_state_clean(Game_state):
+    def __init__(self):
+        super().__init__()
+        self.recipe_good = ''
+        self.inventory_good = ''
+        self.description_good = ''
+        self.action_obs_pairs_good = []
+        self.available_commands_good = []
+    def recipe_clean(self):
+        return self.recipe_good
+    def inventory_clean(self):
+        return self.inventory_good
+    def description_clean(self):
+        return self.description_good
+    def filtered_available_commands(self):
+        return self.available_commands_good
+    def get_admissible_commands(self):
+        return self.available_commands_good
 
-# 测试用
-ACTION_ELIMINATE_ON = False
-
-def game_state_from_game(game: Game_handle_worldmap, need_admissible_commands = True):
-    state = Game_state()
-    state.room = common.extract_room_name(game.info['description'])
-    state.description_raw = game.info['description']
-    state.recipe_raw = game.recipe_raw
-    state.inventory_raw = game.info['inventory']
-    state.action_obs_pairs = game.action_obs_pairs
-    if need_admissible_commands:
-        state.admissible_commands = game.get_admissible_commands() # NOTE: 4.21 Game将代理取得可能选项
-    if hasattr(game, 'worldMap'):
-        state.worldMap = game.worldMap
-    if ACTION_ELIMINATE_ON:
-        state.walkthrough = game.info['extra.walkthrough']
-    return state
 
 
-
-def test():
-    from bert_utils import bert_prompt_from_game_state
-    game = default_game()
-    _ = game.reset()
-    game.act('go east')
-    game.act('go west')
-    game.act('go east')
-    game.act('examine cookbook')
-    print(bert_prompt_from_game_state(game_state_from_game(game)))
-
-# =========== create csv dataset ==============
+def test_game(game: Game_handle_worldmap, model = Fake_model(), max_step = 100):
+    # import game_for_llm
+    # max_step = 50 # 2025.8.28 实验用，实验结束后删除
+    # dbg('Testing: Model eval on, model cuda on.')
+    if model.training:
+        model.eval()
+        dbg('Model eval on.')
+    if not next(model.parameters()).is_cuda:
+        model.cuda()
+        dbg('Model cuda on.')
+    obs, info = game.reset()
+    counter = 0
+    final_action = ''
+    while counter < max_step:
+        action = model.predict(game)
+        #print(action)
+        prev_moves = game.info['moves']
+        obs, reward, done, info = game.act(action)
+        current_moves = info['moves']
+        counter += max(1, current_moves - prev_moves) # 考虑到可能的多步行动（比如高级命令）
+        final_action = action
+        if done:
+            break
+    # result = (counter, info['score'], info['max_score'], info)
+    logger.warning(f'Game done: {info["score"]} / {info["max_score"]}, steps {counter}, won: {info["won"]}, lost: {info["lost"]}, path: {game.game_path}')
+    if info['lost']:
+        logger.warning(f'Game lost: final action: {final_action}')
+    result = TestResult(counter, info['score'], info['max_score'], info)
+    return result

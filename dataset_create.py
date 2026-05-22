@@ -5,7 +5,7 @@ import re
 import pandas as pd
 from tqdm import tqdm
 from functools import lru_cache
-from game import Game_move_action_augment, game_state_from_game, Game_state, Game_with_navigator
+from game import Game_with_navigator
 import common_new as common
 from common_new import COMMAND_LIST_SHUFFLE
 import logging
@@ -147,8 +147,20 @@ def extract_walkthrough_dataset_with_navigator(split = 'fake_test', test_game_pa
 
 
 def create_csv_dataset(outputpath = 'good_dataset', suffix = '_with_navigator', testing = False):
-    dataset_names = ['fake_test'] if testing else ['train', 'valid', 'test']
+    dataset_names = ['fake_train_100','fake_valid_10', 'fake_test_10'] if testing else ['train', 'valid', 'test']
     for split in dataset_names:
         df = extract_walkthrough_dataset_with_navigator(split)
         df.to_csv(os.path.join(outputpath,
                         f'walkthrough_{split}{suffix}.csv'), index=False)
+        
+
+def read_csv_dataset(inputpath = 'good_dataset', split = 'fake_test', suffix = '_with_navigator'):
+    path = os.path.join(inputpath,
+                        f'walkthrough_{split}{suffix}.csv')
+    print(path)
+    df= pd.read_csv(path)
+    df['action_obs_pairs'] = df['action_obs_pairs'].apply(eval)
+    df['admissible_commands'] = df['admissible_commands'].apply(eval)
+    df['recipe'] = df['recipe'].fillna('')
+    df['inventory'] = df['inventory'].fillna('')
+    return df
