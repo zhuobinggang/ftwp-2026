@@ -89,6 +89,7 @@ def extract_walkthrough_dataset_with_navigator(split = 'fake_test', test_game_pa
             if cmd == 'eat meal': # 修正admissible_commands
                 # logger.debug(f'Eat meal not in admissible_commands, I will add it to make sure the game can done.')
                 admissible_commands.append(cmd)
+            random.shuffle(admissible_commands) # 再次shuffle以增加导航的多样性
             game_step = {
                 'game_path': os.path.split(game_path)[-1],
                 'room': game.room,

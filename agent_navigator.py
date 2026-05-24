@@ -102,8 +102,8 @@ def row_to_game_state(row):
     game_state.recipe_good = row['recipe']
     game_state.inventory_good = row['inventory']
     game_state.available_commands_good = row['admissible_commands']
-    if common.COMMAND_LIST_SHUFFLE:
-        random.shuffle(game_state.available_commands_good)
+    #if common.COMMAND_LIST_SHUFFLE: # NOTE: 2026.5.24 数据集生成的时候已经打乱过了，不需要再打乱
+    #    random.shuffle(game_state.available_commands_good)
     game_state.description_good = row['description']
     return game_state
 

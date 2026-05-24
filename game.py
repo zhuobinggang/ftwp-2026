@@ -36,6 +36,8 @@ class Game:
         self.room = ''
         self.inventory_raw = ''
         self.description_raw = ''
+        self.moves_last_check = -1 # 用于判断是否需要重新生成available_commands
+        self.cached_available_commands = []
     def reset(self):
         self.obs, self.info = self.env.reset()
         self.room = common.extract_room_name(self.info['description'])
@@ -58,7 +60,10 @@ class Game:
     def description_clean(self):
         return common.description_simplify(self.description_raw)
     def get_admissible_commands(self):
-        return common.filter_commands_default(self.info['admissible_commands'])
+        if self.moves_last_check != self.info['moves']:
+            self.moves_last_check = self.info['moves']
+            self.cached_available_commands = common.filter_commands_default(self.info['admissible_commands'])
+        return self.cached_available_commands
     def available_commands_text(self):
         return common.actions_to_list_number(self.get_admissible_commands())
 
@@ -281,8 +286,8 @@ class Game_with_navigator(Game_handle_worldmap):
         all_commands = super().get_admissible_commands()
         all_commands += self.navigate_command_generate()
         all_commands += self.extra_commands_hook()
-        if common.COMMAND_LIST_SHUFFLE:
-            random.shuffle(all_commands) # NOTE: 2025.5.5 打乱以提高模型的泛化能力
+        #if common.COMMAND_LIST_SHUFFLE:
+        #    random.shuffle(all_commands) # NOTE: 2025.5.5 打乱以提高模型的泛化能力 NOTE: 2026.5.24 只在数据集生成时打乱
         return all_commands
 
 def default_game():
