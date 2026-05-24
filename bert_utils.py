@@ -15,7 +15,7 @@ NextCommandResult = recordclass('NextCommandResult', 'index command logits distr
 SpecialTokens = recordclass('SpecialTokens', 'cls sep pad mask unk')
 BertInput = recordclass('BertInput', 'input_ids attention_mask labels token_type_ids')
 
-BERT_BASE_UNCASED_MODEL_ID = 'bert-base-uncased'
+# BERT_BASE_UNCASED_MODEL_ID = 'bert-base-uncased'
 ROBERTA_BASE_UNCASED_MODEL_ID = 'FacebookAI/roberta-base'
 HISTORY_WINDOW = 20
 EMPTY_INVENTORY = 'empty'
