@@ -327,8 +327,6 @@ class Model_ucb1(Model):
         return best_action
     
 def train(model, split = 'train', log_name = '', writer = None):
-    if writer is None:
-        writer = get_writer()
     train_dataloader = dataloader_get(split=split)
     # training
     from accelerate import Accelerator
@@ -351,7 +349,8 @@ def train(model, split = 'train', log_name = '', writer = None):
                    labels=label_ids.to(DEVICE))
         loss = outputs.loss
         accelerator.backward(loss)
-        writer.add_scalar(f'Loss/train_{log_name}', loss.item())
+        writer.add_scalar(f'Loss/train_{log_name}', loss.item(), writer.global_step)
+        writer.global_step += 1
         optimizer.step()
         optimizer.zero_grad()
 
@@ -381,7 +380,9 @@ def valid_all(model: Model, split = 'partial_valid', game_init_func = None):
         steps.append(result.step)
         # dbg(f'Valid results,  {result.score} / {result.max_score}, steps {result.step}, game {game_path}')
     average_step = np.mean(steps)
-    return score / max_score, average_step
+    norm_score = score / max_score
+    print(f'Validation on {split} norm_score: {norm_score}')
+    return norm_score, average_step
 
 def train_repeat(testing = False):
     global BEST_MODELS, MAX_TEST_STEP, TRAIN_SPLIT, VALID_SPLIT, TEST_SPLIT
@@ -405,6 +406,7 @@ def train_repeat(testing = False):
             model.prefix += '_testing'
         max_score = 0
         writer = get_writer()
+        writer.global_step = 0
         for i in range(epoch):
             train(model, split=TRAIN_SPLIT, log_name=f'{rp}', writer=writer)
             score, avg_step = valid_all(model, split=VALID_SPLIT, game_init_func=GAME_INIT_FUNC)
