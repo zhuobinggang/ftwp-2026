@@ -162,6 +162,11 @@ def batch_predict(bert, batch_bert_input):
 
 # NOTE: 2026.5.22 删除参数中的commands，因为可以直接从game_state中获取，减少出错的可能性
 def get_next_command_batch(bert, game_state: Game_state):
+    # 🌟 如果 bert 是被 Accelerator 包装过的，提取出最底层的原始 torch Module
+    if hasattr(bert, 'module'):
+        unwrapped_bert = bert.module
+    else:
+        unwrapped_bert = bert
     # 对于每一个action，计算它的概率
     bert_inputs = []
     for command in game_state.get_admissible_commands():
@@ -169,7 +174,7 @@ def get_next_command_batch(bert, game_state: Game_state):
         bert_inputs.append(bert_input)
     command_logits = []
     for batch_bert_input in chunk(bert_inputs, BATCH_SIZE):
-        command_logits += batch_predict(bert, batch_bert_input)
+        command_logits += batch_predict(unwrapped_bert, batch_bert_input)
     command_index = np.argmax(command_logits)
     max_prob_command = game_state.get_admissible_commands()[command_index]
     # beutiful_print_command_and_probs game_state.get_admissible_commands(), command_logits)
