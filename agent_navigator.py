@@ -325,8 +325,9 @@ class Model_ucb1(Model):
             logger.debug(f'Action: {best_action}\n\n')
         return best_action
     
-def train(model, split = 'train', log_name = ''):
-    writer = get_writer()
+def train(model, split = 'train', log_name = '', writer = None):
+    if writer is None:
+        writer = get_writer()
     train_dataloader = dataloader_get(split=split)
     # training
     from accelerate import Accelerator
@@ -402,8 +403,9 @@ def train_repeat(testing = False):
         if testing:
             model.prefix += '_testing'
         max_score = 0
+        writer = get_writer()
         for i in range(epoch):
-            train(model, split=TRAIN_SPLIT, log_name=f'{rp}')
+            train(model, split=TRAIN_SPLIT, log_name=f'{rp}', writer=writer)
             score, avg_step = valid_all(model, split=VALID_SPLIT, game_init_func=GAME_INIT_FUNC)
             logger.error(f'{get_time_str()} Full valid score ({rp}) {ucb1_on}: {score}, average step {avg_step}')
             logger.warning(f'{get_time_str()} Full valid score ({rp}) {ucb1_on}: {score}, average step {avg_step}')
