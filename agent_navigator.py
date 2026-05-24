@@ -120,6 +120,7 @@ def dataloader_get(split = 'train'):
     bert_inputs = []
     for row_idx, row in tqdm(csv.iterrows(), total=len(csv), desc="Dataset processing"):
         state = row_to_game_state(row) # NOTE: 2025.5.5 打乱以提高模型的泛化能力
+        assert state.get_admissible_commands() == row['admissible_commands']
         negative_commands = [command for command in state.get_admissible_commands() if command != row['action']]
         negative_commands = negative_commands[:NEGATIVE_SAMPLE_SIZE]
         for command in negative_commands:
