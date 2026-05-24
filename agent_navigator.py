@@ -309,6 +309,7 @@ class Model_ucb1(Model):
         # NOTE: 获取logits并使用ucb1算法选择动作
         result = get_next_command_batch(self.bert, game_state)
         logits = result.logits # (actions_length)
+        assert len(logits) == len(all_actions), f"Logits length {len(logits)} does not match actions length {len(all_actions)}"
         logits = torch.tensor(logits).to(DEVICE)
         best_action_idx, action_prob = choose_action_ubc1(logits, masked_state_action_executed_count)
         best_action = all_actions[best_action_idx]
