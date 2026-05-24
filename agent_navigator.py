@@ -148,6 +148,9 @@ def batch_predict(bert, batch_bert_input):
     # token_type_ids = torch.tensor([bert_input.token_type_ids for bert_input in batch_bert_input], dtype=torch.long).to(DEVICE)
     outputs = bert(input_ids=input_ids, attention_mask=attention_mask)
     logits = outputs.logits
+    # 🔍 临时添加这行，看看是不是这里少了一个：
+    if len(batch_bert_input) != logits.size(0):
+        raise ValueError(f"警告：输入了 {len(batch_bert_input)} 个样本，但模型返回了 {logits.size(0)} 个 Logits！")
     cls_token_index = 0
     logits = logits[:, cls_token_index] # (batch_size, 30522)
     command_length = 2 # 0 or 1
