@@ -30,9 +30,9 @@ VALID_SPLIT = 'valid'
 TEST_SPLIT = 'test'
 MAX_TEST_STEP = 100
 MAX_TOKEN_SIZE = 342
-NEGATIVE_SAMPLE_SIZE = 4
+NEGATIVE_SAMPLE_SIZE = 5
 
-BATCH_SIZE = 16
+BATCH_SIZE = 8
 
 DANGER_FILTER_ON = False # NOTE: 对于navigator only模型，danger filter不需要打开
 
@@ -43,6 +43,7 @@ BEST_MODELS = [-1, -1, -1]
 def get_writer():
     from tensorboardX import SummaryWriter
     writer = SummaryWriter()
+    writer.global_step = 0
     return writer
 
 def bert_tokenize_prompt_cut_theirs(game: Game_with_navigator, action: str):
@@ -392,10 +393,10 @@ def train_repeat(testing = False):
         VALID_SPLIT = 'fake_valid_10'
         TEST_SPLIT = 'fake_test_10'
         repeat = 1
-        epoch = 6
+        epoch = 5
     else:
         repeat = 1
-        epoch = 6
+        epoch = 5
     logger.warning(f'Training with {repeat} repeats, {epoch} epochs each, {MAX_TEST_STEP} max test steps. Train split: {TRAIN_SPLIT}, valid split: {VALID_SPLIT}, test split: {TEST_SPLIT}.')
     INIC_FUNC = Model_ucb1
     ucb1_on = 'with UCB1' if INIC_FUNC == Model_ucb1 else 'w/o UCB1'
@@ -406,7 +407,6 @@ def train_repeat(testing = False):
             model.prefix += '_testing'
         max_score = 0
         writer = get_writer()
-        writer.global_step = 0
         for i in range(epoch):
             train(model, split=TRAIN_SPLIT, log_name=f'{rp}', writer=writer)
             score, avg_step = valid_all(model, split=VALID_SPLIT, game_init_func=GAME_INIT_FUNC)
