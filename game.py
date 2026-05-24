@@ -316,7 +316,7 @@ class Game_state(Game_handle_recipe):
         game_path = None
         super().__init__(game_path, need_init_env=False)
     def __str__(self):
-        return f'Game_state(room={self.room}, description={self.description_clean()}, recipe={self.recipe_clean()}, inventory={self.inventory_clean()}, action_obs_pairs={self.action_history()}, admissible_commands={self.available_commands_text()})'
+        return f'Game_state(\nroom={self.room}\ndescription={self.description_clean()}\nrecipe={self.recipe_clean()}\ninventory={self.inventory_clean()}\naction_obs_pairs={self.action_history()}\nadmissible_commands={self.available_commands_text()})'
 
 class Game_state_clean(Game_state):
     def __init__(self):

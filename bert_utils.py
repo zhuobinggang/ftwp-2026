@@ -108,8 +108,9 @@ def bert_tokenize_prompt_cut(game: Game_handle_worldmap, need_action_history = T
 @lru_cache(maxsize=None)
 def command_indexs_tokenized(command_length = 100):
     tokenizer = default_tokenizer()
-    command_index_string = ' '.join([str(item) for item in list(range(command_length))])
-    results =  tokenizer.encode(command_index_string, add_special_tokens = False)
+    # command_index_string = ' '.join([str(item) for item in list(range(command_length))]) # 2026.5.24 BUG
+    # results =  tokenizer.encode(command_index_string, add_special_tokens = False)
+    results = [tokenizer.convert_tokens_to_ids(str(i)) for i in range(command_length)]
     assert len(results) == command_length, f"command_indexs_tokenized: {len(results)} != {command_length}"
     return results
 

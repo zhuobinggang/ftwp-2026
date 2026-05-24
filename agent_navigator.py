@@ -19,7 +19,7 @@ import os
 import common_new as common
 from game import Game_with_navigator, Game_state_clean, Game_state, test_game
 
-LEARNING_RATE = 2e-5
+LEARNING_RATE = 1e-5
 CSV_SUFFIX = '_with_navigator'
 SAVE_DIR = common.CHECKPOINT_DIR
 assert os.path.exists(SAVE_DIR), f"Save dir {SAVE_DIR} does not exist!"
@@ -82,7 +82,7 @@ def to_bert_input_theirs(game: Game_with_navigator, action: str, positive = True
         assert len(prompt_ids) == MAX_TOKEN_SIZE, f"prompt_ids length {len(prompt_ids)} != {MAX_TOKEN_SIZE}"
     labels = [-100] * MAX_TOKEN_SIZE if need_padding else [-100] * len(prompt_ids)
     action_idx = 1 if positive else 0
-    labels[0] = command_indexs_tokenized()[action_idx]
+    labels[0] = command_indexs_tokenized()[action_idx] # 2026 5.24 BUG
     # prepare token_type_ids
     token_type_ids = [0] * (len(a_tokens) + 1) + [1] * (len(b_tokens) - 1) # 需要注意的是，b_tokens的第一个token是SEP，所以需要-1
     if need_padding:
@@ -94,6 +94,7 @@ def to_bert_input_theirs(game: Game_with_navigator, action: str, positive = True
         token_type_ids = token_type_ids
     )
 
+# 只用于从csv的行转换成game_state
 def row_to_game_state(row):
     game_state = Game_state_clean()
     game_state.room = row['room']
@@ -119,7 +120,7 @@ def dataloader_get(split = 'train'):
     bert_inputs = []
     for row_idx, row in tqdm(csv.iterrows(), total=len(csv), desc="Dataset processing"):
         state = row_to_game_state(row) # NOTE: 2025.5.5 打乱以提高模型的泛化能力
-        negative_commands = [command for command in row['admissible_commands'] if command != row['action']]
+        negative_commands = [command for command in state.get_admissible_commands() if command != row['action']]
         negative_commands = negative_commands[:NEGATIVE_SAMPLE_SIZE]
         for command in negative_commands:
             bert_input = to_bert_input_theirs(state, command, positive=False, need_padding=True)
@@ -387,8 +388,8 @@ def train_repeat(testing = False):
         TRAIN_SPLIT = 'fake_train_100'
         VALID_SPLIT = 'fake_valid_10'
         TEST_SPLIT = 'fake_test_10'
-        repeat = 2
-        epoch = 2
+        repeat = 1
+        epoch = 6
     else:
         repeat = 1
         epoch = 6
@@ -398,6 +399,8 @@ def train_repeat(testing = False):
     for rp in range(repeat):
         model = get_model(init_func = INIC_FUNC)
         model.prefix = f'roberta_navigator_{rp}'
+        if testing:
+            model.prefix += '_testing'
         max_score = 0
         for i in range(epoch):
             train(model, split=TRAIN_SPLIT, log_name=f'{rp}')
