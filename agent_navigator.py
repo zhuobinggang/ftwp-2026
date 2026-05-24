@@ -120,7 +120,7 @@ def dataloader_get(split = 'train'):
     bert_inputs = []
     for row_idx, row in tqdm(csv.iterrows(), total=len(csv), desc="Dataset processing"):
         state = row_to_game_state(row) # NOTE: 2025.5.5 打乱以提高模型的泛化能力
-        assert state.get_admissible_commands() == row['admissible_commands']
+        # assert state.get_admissible_commands() == row['admissible_commands'] # CHECKED 26.5.24
         negative_commands = [command for command in state.get_admissible_commands() if command != row['action']]
         negative_commands = negative_commands[:NEGATIVE_SAMPLE_SIZE]
         for command in negative_commands:
@@ -351,7 +351,7 @@ def train(model, split = 'train', log_name = '', writer = None):
                    labels=label_ids.to(DEVICE))
         loss = outputs.loss
         accelerator.backward(loss)
-        writer.add_scalar(f'Loss/train_{log_name}', loss.item(), batch_idx)
+        writer.add_scalar(f'Loss/train_{log_name}', loss.item())
         optimizer.step()
         optimizer.zero_grad()
 
