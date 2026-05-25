@@ -315,8 +315,9 @@ class Model_ucb1(Model):
             danger_action_mask = self.danger_action_mask(game_state, all_actions)
             masked_state_action_executed_count = [a + b for a, b in zip(masked_state_action_executed_count, danger_action_mask)]
         # NOTE: 获取logits并使用ucb1算法选择动作
-        result = get_next_command_batch(self.bert, game_state)
+        result = get_next_command_batch(self.bert, game_state) # 说明在这里面，all actions变了
         logits = result.logits # (actions_length)
+        # BUG reported
         assert len(logits) == len(all_actions), f"Logits length {len(logits)} does not match actions length {len(all_actions)}"
         logits = torch.tensor(logits).to(DEVICE)
         best_action_idx, action_prob = choose_action_ubc1(logits, masked_state_action_executed_count)
