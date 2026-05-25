@@ -407,7 +407,8 @@ def train_repeat(testing = False):
     ucb1_on = 'with UCB1' if INIC_FUNC == Model_ucb1 else 'w/o UCB1'
     for rp in range(repeat):
         model = get_model(init_func = INIC_FUNC)
-        model.prefix = f'roberta_navigator_{rp}'
+        repeat_id = get_time_str()
+        model.prefix = f'roberta_navigator_{repeat_id}'
         if testing:
             model.prefix += '_testing'
         max_score = 0

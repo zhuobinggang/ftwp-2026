@@ -165,3 +165,9 @@ def read_csv_dataset(inputpath = 'good_dataset', split = 'fake_test', suffix = '
     df['recipe'] = df['recipe'].fillna('')
     df['inventory'] = df['inventory'].fillna('')
     return df
+
+
+def run():
+    random.seed(2026)
+    create_csv_dataset(testing = True)
+    create_csv_dataset(testing = False)
