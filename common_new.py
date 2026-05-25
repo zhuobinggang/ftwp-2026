@@ -2,7 +2,8 @@ import re
 import logging
 import os
 
-GAME_BASE_PATH = os.path.expanduser("~/research/datasets/ftwp/games")
+dataset_base = os.environ.get('DATASET_BASE')
+GAME_BASE_PATH = f"{dataset_base}/ftwp/games"
 CHECKPOINT_DIR = os.path.abspath("./checkpoints/ftwp_our_navigator_only")
 
 def get_time_str():
