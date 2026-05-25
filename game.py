@@ -36,8 +36,6 @@ class Game:
         self.room = ''
         self.inventory_raw = ''
         self.description_raw = ''
-        self.moves_last_check = -1 # 用于判断是否需要重新生成available_commands
-        self.cached_available_commands = []
     def reset(self):
         self.obs, self.info = self.env.reset()
         self.room = common.extract_room_name(self.info['description'])
@@ -60,10 +58,7 @@ class Game:
     def description_clean(self):
         return common.description_simplify(self.description_raw)
     def get_admissible_commands(self):
-        if self.moves_last_check != self.info['moves']:
-            self.moves_last_check = self.info['moves']
-            self.cached_available_commands = common.filter_commands_default(self.info['admissible_commands'])
-        return self.cached_available_commands
+        return common.filter_commands_default(self.info['admissible_commands'])
     def available_commands_text(self):
         return common.actions_to_list_number(self.get_admissible_commands())
 
