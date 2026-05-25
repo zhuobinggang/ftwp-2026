@@ -6,3 +6,5 @@ transformers
 accelerate
 recordclass
 pydash
+tensorboardX
+tensorboard
