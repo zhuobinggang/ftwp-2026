@@ -2,7 +2,8 @@ import re
 import logging
 import os
 
-dataset_base = os.environ.get('DATASET_BASE')
+# dataset_base = os.environ.get('DATASET_BASE')
+dataset_base = '/work/zb023/datasets'
 GAME_BASE_PATH = f"{dataset_base}/ftwp/games"
 CHECKPOINT_DIR = os.path.abspath("./checkpoints/ftwp_our_navigator_only")
 
