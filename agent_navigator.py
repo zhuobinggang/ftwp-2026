@@ -32,7 +32,7 @@ MAX_TEST_STEP = 100
 MAX_TOKEN_SIZE = 342
 NEGATIVE_SAMPLE_SIZE = 5
 
-BATCH_SIZE = 8
+BATCH_SIZE = 4 if common.LOCAL else 8
 
 DANGER_FILTER_ON = False # NOTE: 对于navigator only模型，danger filter不需要打开
 
