@@ -20,10 +20,9 @@ CHECKPOINT_DIR = os.path.abspath("./checkpoints/ftwp_our_navigator_only")
 
 def get_time_str():
     from datetime import datetime
-    # get time now
     dt = datetime.now()
-    # format it to a string
-    return dt.strftime('%Y%m%d_%H%M%S')
+    # %f 直接返回 6 位微秒数
+    return dt.strftime('%Y%m%d_%H%M%S_%f')
 
 LOG_FILE = f'log/log_{get_time_str()}.log'
 
