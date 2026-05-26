@@ -42,7 +42,8 @@ class Game:
         self.inventory_raw = self.info['inventory']
         self.description_raw = self.info['description']
         return self.obs, self.info
-    def act(self, action):
+    def act(self, action): # obs无更改
+        action = action.strip()
         self.obs, self.reward, self.done, self.info = self.env.step(action)
         self.room = common.extract_room_name(self.info['description']) # 每一步都更新房间信息
         self.inventory_raw = self.info['inventory'] # 每一步都更新库存信息
@@ -85,18 +86,24 @@ class Game_with_history(Game):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.action_obs_pairs = []
-    def act(self, action):
-        self.obs, self.reward, self.done, self.info = self.env.step(action)
-        self.action_obs_pairs.append((action, self.obs))
+    def action_obs_pair_hook(self, action, obs):
+        # This method can be overridden by subclasses to modify action-obs pairs
+        return action, obs.replace('\n', ' ').strip() # 默认的hook是把obs中的换行符替换成空格，并去除首尾空格
+    def before_act_hook(self, action):
+        # This method can be overridden by subclasses to do something before act
+        pass
+    def act(self, action): # obs无更改
+        self.before_act_hook(action)
+        self.obs, self.reward, self.done, self.info = super().act(action)
+        new_action, new_obs = self.action_obs_pair_hook(action, self.obs)
+        self.action_obs_pairs.append((new_action, new_obs)) # TODO: add hook
         return self.obs, self.reward, self.done, self.info
-    def clean_action_obs_pairs(self):
-        return [clean_action_obs(action, obs) for action, obs in self.action_obs_pairs]
     def action_history(self, history_window = 100, seperator='>', no_action_text=''):
-        action_obs_pairs = self.clean_action_obs_pairs()
+        action_obs_pairs = self.action_obs_pairs
         action_history_text = common.action_obs_pairs_to_history(action_obs_pairs, seperator=seperator, no_action_text=no_action_text, history_window = history_window)        
         return action_history_text
     def action_history_simple(self, history_window = 5, seperator='>', no_action_text='empty'):
-        action_obs_pairs = self.clean_action_obs_pairs()
+        action_obs_pairs = self.action_obs_pairs
         action_history_text = common.action_obs_pairs_to_history_simple(action_obs_pairs, seperator=seperator, no_action_text=no_action_text, history_window = history_window)        
         return action_history_text
     
@@ -106,39 +113,135 @@ class Game_handle_recipe(Game_with_history):
         self.recipe_raw = ''
         self.recipe = ''
         self.obs_raw = ''
-    def act(self, action):
-        self.obs_raw, self.reward, self.done, self.info = self.env.step(action)
-        obs = self.obs_raw
-        # obs simplify
+    def action_obs_pair_hook(self, action, obs):
+        # This method can be overridden by subclasses to modify action-obs pairs
+        action, new_obs = super().action_obs_pair_hook(action, obs)
         if action == 'examine cookbook' and common.is_recipe_feedback(obs):
             self.recipe_raw = common.extract_recipe(obs, need_clean=False)
             self.recipe = common.extract_recipe(self.recipe_raw, need_clean=True)
-        self.action_obs_pairs.append((action, obs)) # 不在这里处理，而是放到game_state中处理
-        self.obs = obs
-        return self.obs, self.reward, self.done, self.info
+            new_obs = 'recipe got!'
+        return action, new_obs
     def recipe_clean(self):
         return self.recipe
-    
+    def ingredients_from_recipe(self):
+        return common.ingredients_from_recipe(self.recipe_clean())
+    def filter_enetities_in_inventory(self, candidate_entities = None):
+        entities = []
+        inventory = self.inventory_clean()
+        candidate_entities = candidate_entities if candidate_entities is not None else self.info['entities']
+        for entity in candidate_entities:
+            if common.whole_word_inside(entity, inventory):
+                entities.append(entity)
+        return entities
+    def filter_enetities_in_ingredients(self, candidate_entities = None):
+        if self.recipe == '':
+            logger.debug('No recipe found in game state')
+            return []
+        results = []
+        ingredients = self.ingredients_from_recipe()
+        candidate_entities = candidate_entities if candidate_entities is not None else self.info['entities']
+        for entity in candidate_entities:
+            if common.whole_word_inside(entity, ingredients):
+                results.append(entity)
+        return results
+    def filter_cook_commands(self, cmds):
+        # NOTE: 只有食谱中出现的食材才保留cook命令
+        cook_cmds = [cmd for cmd in cmds if cmd.startswith('cook ')]
+        other_cmds = [cmd for cmd in cmds if not cmd.startswith('cook ')]
+        if self.recipe == '': # 没有食谱的情况下不cook任何东西
+            return other_cmds
+        ingredients = self.ingredients_from_recipe()
+        entities = [common.extract_cook_command_entity(cook_cmd) for cook_cmd in cook_cmds]
+        command_entity_pairs = list(zip(cook_cmds, entities))
+        for cmd, entity in command_entity_pairs:
+            if common.whole_word_inside(entity, ingredients):
+                other_cmds.append(cmd)
+        return other_cmds
+    def filter_take_commands(self, cmds):
+        # NOTE: 只有食谱中出现的食材才保留take命令
+        take_cmds = [cmd for cmd in cmds if cmd.startswith('take ')]
+        other_cmds = [cmd for cmd in cmds if not cmd.startswith('take ')]
+        if self.recipe == '': # 没有食谱的情况下不拿任何东西
+            return other_cmds
+        ingredients = self.ingredients_from_recipe()
+        entities = [take_cmd.replace('take ', '').strip() for take_cmd in take_cmds]
+        command_entity_pairs = list(zip(take_cmds, entities))
+        for cmd, entity in command_entity_pairs:
+            if common.whole_word_inside(entity, ingredients):
+                other_cmds.append(cmd)
+            if entity == 'knife': # 2026.5.26 不要过滤掉knife
+                other_cmds.append(cmd)
+        return other_cmds
+    def filter_entities_in_description(self, candidate_entities = None, use_raw_description = False):
+        entities = []
+        desc = self.description_clean() if not use_raw_description else self.info['description']
+        candidate_entities = candidate_entities if candidate_entities is not None else self.info['entities']
+        for entity in candidate_entities:
+            if common.whole_word_inside(entity, desc):
+                entities.append(entity)
+        return entities
+    def try_add_take_commands(self, cmds):
+        # NOTE: 在库存满了的时候不能take，但是我们希望能继续生成用于负反馈
+        # 出现在description和recipe中的实体，再包括knife都可以被take
+        entities_in_recipe = self.filter_enetities_in_ingredients(self.info['entities'])
+        entities_in_recipe += ['knife']
+        entities_in_description = self.filter_entities_in_description(self.info['entities'])
+        entities_can_take = set(entities_in_recipe) & set(entities_in_description)
+        take_commands_added = ['take ' + entity for entity in entities_can_take]
+        # print(f'Added take commands: {take_commands_added}')
+        return take_commands_added + cmds
+
+    def filter_prepare_meal_command(self, cmds):
+        # NOTE: 只有当食谱中出现的食材都在库存中时才保留prepare meal命令
+        if 'prepare meal' not in cmds:
+            return cmds
+        cmds_without_prepare_meal = cmds.copy()
+        cmds_without_prepare_meal.remove('prepare meal')
+        if self.recipe == '': # 没找到食谱
+            return cmds_without_prepare_meal
+        room = self.room
+        if room.lower() != 'kitchen': # 不在厨房
+            return cmds_without_prepare_meal
+        entities_in_inventory = self.filter_enetities_in_inventory(self.info['entities'])
+        entities_in_recipe = self.filter_enetities_in_ingredients(self.info['entities'])
+        for entity in entities_in_recipe:
+            if entity not in entities_in_inventory: # 食谱中出现的食材不在库存中
+                logger.debug(f'Entity {entity} not in inventory, no need to generate prepare meal commands')
+                return cmds_without_prepare_meal
+        return cmds_without_prepare_meal + ['prepare meal']
+    def filter_examine_cookbook_command(self, cmds):
+        if 'examine cookbook' not in cmds:
+            return cmds
+        cmds_without_examine_cookbook = cmds.copy()
+        cmds_without_examine_cookbook.remove('examine cookbook')
+        if self.recipe != '': # 已经找到食谱了
+            return cmds_without_examine_cookbook
+        return cmds_without_examine_cookbook + ['examine cookbook']
+    def get_admissible_commands(self):
+        cmds = super().get_admissible_commands()
+        # TODO: 对于cook指令，只有出现在ingredients中才保留
+        cmds = self.filter_cook_commands(cmds)
+        cmds = self.try_add_take_commands(cmds) # 在库存满了的时候不能take，但是我们希望能继续生成用于负反馈
+        cmds = self.filter_take_commands(cmds)
+        cmds = self.filter_prepare_meal_command(cmds)
+        cmds = self.filter_examine_cookbook_command(cmds)
+        return cmds
     
 # NOTE: 在移动命令被执行后，obs改为prev_room to current_room。这样能够给模型一个直观的记忆。因为在prompt中没有上一个房间的信息，应该很有帮助。
 class Game_move_action_augment(Game_handle_recipe):
-    def act(self, action):
-        # 这里处理移动命令
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.prev_room = ''
+    def before_act_hook(self, action):
         if action.startswith('go'):
-            prev_room = common.extract_room_name(self.info['description'])
-            self.obs_raw, self.reward, self.done, self.info = self.env.step(action)
-            current_room = common.extract_room_name(self.obs_raw)
-            obs = f'From {prev_room} to {current_room}.'
-        else:
-            self.obs_raw, self.reward, self.done, self.info = self.env.step(action)
-            obs = self.obs_raw
-        # obs simplify
-        if action == 'examine cookbook' and common.is_recipe_feedback(obs):
-            self.recipe_raw = common.extract_recipe(obs, need_clean=False)
-            self.recipe = common.extract_recipe(self.recipe_raw, need_clean=True)
-        self.action_obs_pairs.append((action, obs)) # 不在这里处理，而是放到game_state中处理
-        self.obs = obs
-        return self.obs, self.reward, self.done, self.info
+            self.prev_room = common.extract_room_name(self.info['description'])
+    def action_obs_pair_hook(self, action, obs): # after act hook
+        action, new_obs = super().action_obs_pair_hook(action, obs)
+        if action.startswith('go'):
+            prev_room = self.prev_room
+            current_room = common.extract_room_name(self.info['description'])
+            new_obs = f'From {prev_room} to {current_room}.'
+        return action, new_obs
     
 def bfs_search(start, goal, worldMap):
     queue = [(start, [])]
@@ -183,17 +286,12 @@ class Game_handle_worldmap(Game_move_action_augment):
         self.obs, self.info = super().reset()
         self.worldMap[self.room] = {}
         return self.obs, self.info
-    def act(self, action):
-        action = action.strip()
-        # 这里处理移动命令
+    def action_obs_pair_hook(self, action, obs): # after move action, update worldMap and itemMap
+        action, obs = super().action_obs_pair_hook(action, obs)
         if action.startswith('go'):
-            prev_room = common.extract_room_name(self.info['description'])
-            self.obs_raw, self.reward, self.done, self.info = self.env.step(action)
-            current_room = common.extract_room_name(self.info['description'])
-            obs = f'From {prev_room} to {current_room}.'
-            if prev_room == current_room:
-                logger.warning(f'Action {action} should not happen, prev_room == current_room: {prev_room}')
-            elif True: # 更新worldMap 
+            current_room = self.room # setted in Game.act
+            prev_room = self.prev_room # setted in Game_move_action_augment.before_act_hook
+            if True: # 更新worldMap
                 if prev_room not in self.worldMap:
                     self.worldMap[prev_room] = {}
                 if current_room not in self.worldMap:
@@ -202,9 +300,26 @@ class Game_handle_worldmap(Game_move_action_augment):
                 op_direction = common.get_opposite_direction(direction)
                 self.worldMap[prev_room][direction] = current_room
                 self.worldMap[current_room][op_direction] = prev_room
-        elif action.startswith('navigate to '):
+            if True: # 更新itemMap
+                # 每一步根据recipe & 环境描述来更新itemList。item包含字段：room。
+                entities = self.info['entities']
+                # 去除east, west, north, south等方向词，避免误匹配
+                entities = [entity for entity in entities if entity not in common.DIRECTIONS]
+                for entity in entities:
+                    if common.whole_word_inside(entity, self.info['description']):
+                        if entity not in self.itemMap:
+                            self.itemMap[entity] = {'room': ''}
+                        self.itemMap[entity]['room'] = self.room # setted in Game.act
+                    if common.whole_word_inside(entity, self.info['inventory']):
+                        if entity not in self.itemMap:
+                            self.itemMap[entity] = {'room': ''}
+                        self.itemMap[entity]['room'] = 'inventory'
+        return action, obs
+    def act(self, action): # 要代理navigate命令
+        # 代理navigate命令，循环act goes
+        if action.startswith('navigate to '):
             # logger.warning(f'{action}')
-            prev_room = common.extract_room_name(self.info['description'])
+            prev_room = self.prev_room # setted in Game_move_action_augment.before_act_hook
             entity_or_room = action.replace('navigate to ', '')
             path = []
             if entity_or_room in self.itemMap:
@@ -214,37 +329,11 @@ class Game_handle_worldmap(Game_move_action_augment):
                 target_room = entity_or_room
                 path = self.navigate_to_room(target_room)
             for temp_action in path: # 导航到目标房间
-                self.obs_raw, self.reward, self.done, self.info = self.env.step(temp_action)
+                self.obs_raw, self.reward, self.done, self.info = super().act(temp_action)
             obs = f'Navigate from {prev_room} to {target_room}.'
             logger.debug(f'{obs}, path: {path}')
-        else:
-            self.obs_raw, self.reward, self.done, self.info = self.env.step(action)
-            obs = self.obs_raw
-        # obs simplify
-        if action == 'examine cookbook' and common.is_recipe_feedback(obs):
-            self.recipe_raw = common.extract_recipe(obs, need_clean=False)
-            self.recipe = common.extract_recipe(self.recipe_raw, need_clean=True)
-        self.action_obs_pairs.append((action, obs)) # 不在这里处理，而是放到game_state中处理
-        self.obs = obs
-        # 更新self.room
-        self.room = common.extract_room_name(self.info['description'])
-        if True: # NOTE: 每一步根据环境描述来更新itemMap
-            # 每一步根据recipe & 环境描述来更新itemList。item包含字段：room。
-            entities = self.info['entities']
-            # 去除east, west, north, south等方向词，避免误匹配
-            entities = [entity for entity in entities if entity not in common.DIRECTIONS]
-            for entity in entities:
-                if common.whole_word_inside(entity, self.info['description']):
-                    if entity not in self.itemMap:
-                        self.itemMap[entity] = {'room': ''}
-                    if self.room != self.itemMap[entity]['room']:
-                        # logger.debug(f'Update itemMap: {entity} from {self.itemMap[entity]["room"]} to {room_name}')
-                        pass
-                    self.itemMap[entity]['room'] = self.room
-                if common.whole_word_inside(entity, self.info['inventory']):
-                    if entity not in self.itemMap:
-                        self.itemMap[entity] = {'room': ''}
-                    self.itemMap[entity]['room'] = 'inventory'
+        else: # 否则正常执行
+            self.obs_raw, self.reward, self.done, self.info = super().act(action)
         return self.obs, self.reward, self.done, self.info
 
 # NOTE: 2026.5.19 直接继承Game_handle_worldmap
@@ -268,7 +357,7 @@ class Game_with_navigator(Game_handle_worldmap):
         entities += ['knife']
         entities += common.KITCHENWARES
         commands = []
-        current_room = common.extract_room_name(self.info['description'])
+        current_room = self.room
         for entity in entities:
             if entity in self.itemMap:
                 target_room = self.itemMap[entity]['room']

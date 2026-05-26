@@ -81,11 +81,12 @@ def extract_walkthrough_dataset_with_navigator(split = 'fake_test', test_game_pa
         cmd_index = 0
         game = GAME_INIT_FUNC(game_path)
         game.reset()
+        assert game.action_obs_pairs == [], f'At the beginning of the game, action_obs_pairs should be empty, but got {game.action_obs_pairs}'
         while cmd_index < len(clean_walkthrough):
             cmd = clean_walkthrough[cmd_index]
             if game.done:
                 break
-            admissible_commands = game.get_admissible_commands()
+            admissible_commands = game.get_admissible_commands().copy() # NOTE: 这里必须copy，因为后面可能会修改admissible_commands
             if cmd == 'eat meal': # 修正admissible_commands
                 # logger.debug(f'Eat meal not in admissible_commands, I will add it to make sure the game can done.')
                 admissible_commands.append(cmd)
@@ -95,7 +96,7 @@ def extract_walkthrough_dataset_with_navigator(split = 'fake_test', test_game_pa
                 'room': game.room,
                 'step': game.info['moves'], # NOTE: 这里的step是游戏中的步数
                 'action': cmd, # NOTE: 会被导航后下一个动作覆盖
-                'action_obs_pairs': game.clean_action_obs_pairs(),
+                'action_obs_pairs': game.action_obs_pairs.copy(), # BUG: 必须copy，不然会覆盖
                 'recipe': game.recipe, # 在Game_handle_recipe中经过清理
                 'inventory': game.inventory_clean(),
                 'admissible_commands': admissible_commands,

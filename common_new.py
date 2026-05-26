@@ -1,9 +1,17 @@
 import re
 import logging
 import os
+from pathlib import Path
+
+dir_path = Path("/work/zb023")
+if dir_path.is_dir():
+    print("处于HPC环境")
+    dataset_base = '/work/zb023/datasets'
+else:
+    print("处于本地测试环境")
+    dataset_base = '/home/zhuobinggang/research/datasets'
 
 # dataset_base = os.environ.get('DATASET_BASE')
-dataset_base = '/work/zb023/datasets'
 GAME_BASE_PATH = f"{dataset_base}/ftwp/games"
 CHECKPOINT_DIR = os.path.abspath("./checkpoints/ftwp_our_navigator_only")
 
@@ -421,3 +429,47 @@ def description_simplify(description):
 # BUG: Match whole words only, considering possible non-word boundaries like: 'east' in 'chicken breast'
 def whole_word_inside(word, text):
     return re.search(rf'(?<!\w){re.escape(word)}(?!\w)', text)
+
+
+def compare_lists_ignore_order(list1, list2):
+    # 直接对比两个集合是否相等
+    return set(list1) == set(list2)
+
+
+def print_list_differences(list1, list2):
+    set1 = set(list1)
+    set2 = set(list2)
+    
+    # 1. 找出所有的差异元素（只在 set1 或只在 set2 中出现的元素）
+    all_diff = set1 ^ set2  # 等价于 set1.symmetric_difference(set2)
+    
+    if not all_diff:
+        print("两个数组内容完全一致，没有差异。")
+        return
+
+    print("--- 发现差异 ---")
+    # 2. 细分差异，让打印结果更清晰（可选）
+    only_in_a = set1 - set2
+    only_in_b = set2 - set1
+    
+    if only_in_a:
+        print(f"仅在数组 A 中存在的元素: {list(only_in_a)}")
+        print(f"数组B: {list(set2)}")
+    if only_in_b:
+        print(f"仅在数组 B 中存在的元素: {list(only_in_b)}")
+        print(f"数组A: {list(set1)}")
+
+
+def extract_cook_command_entity(text):
+    # 正则解析：
+    # ^\w+  : 匹配开头的第一个单词（动作，如 cook）
+    # \s+   : 匹配空格
+    # (.*?) : 核心！懒惰匹配中间的所有内容，并将其捕获
+    # \s+with\b : 匹配空格 + 单词 "with"
+    pattern = r"^\w+\s+(.*?)\s+with\b"
+    
+    match = re.search(pattern, text, re.IGNORECASE)
+    if match:
+        # group(1) 拿到的就是 (.*?) 捕获到的内容
+        return match.group(1).strip()
+    return None
