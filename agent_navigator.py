@@ -253,7 +253,7 @@ class Model_ucb1(Model):
         logger.debug(f'\n\n\n === \n\n重新开始，清空地图信息, 房间名: {room_name}')
         self.state_action_count = {} # 记录每个状态下的动作选择次数
     def reset_state_action_count_if_need(self, game_state: Game_state):
-        action_obs_pairs = game_state.clean_action_obs_pairs()
+        action_obs_pairs = game_state.action_obs_pairs
         if len(action_obs_pairs) == 0:
             self.reset_state_action_count(game_state.room)
         self.current_room = game_state.room # 总是要更新当前房间，但是在更新之前需要先更新世界地图（如果有必要）
@@ -327,7 +327,7 @@ class Model_ucb1(Model):
             logger.debug(f'Recipe: {game_state.recipe_clean()}\n')
             logger.debug(f'Description: {game_state.description_clean()}\n')
             logger.debug(f'Inventory: {game_state.inventory_clean()}\n')
-            logger.debug(f'Inventory: {game_state.clean_action_obs_pairs()[-5:]}\n')
+            logger.debug(f'Inventory: {game_state.action_obs_pairs[-5:]}\n')
             beutiful_print_command_and_probs(actions, action_prob, log_func=logger.debug)
             logger.debug(f'Action: {best_action}\n\n')
         return best_action

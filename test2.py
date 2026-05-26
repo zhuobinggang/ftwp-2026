@@ -20,6 +20,6 @@ for command in walkthrough:
 assert game.description_clean() == row_state.description_clean()
 assert game.room == row_state.room
 assert game.recipe_clean() == row_state.recipe_clean()
-assert game.clean_action_obs_pairs() == row_state.clean_action_obs_pairs()
+assert game.action_obs_pairs() == row_state.action_obs_pairs()
 assert common.compare_lists_ignore_order(game.get_admissible_commands(), row_state.get_admissible_commands())
 assert game.get_admissible_commands() == game.get_admissible_commands(), f'确保同一个状态下多次调用get_admissible_commands结果一致，避免因为随机打乱导致的测试不稳定'
