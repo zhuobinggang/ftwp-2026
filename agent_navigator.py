@@ -21,8 +21,8 @@ from game import Game_with_navigator, Game_state_clean, Game_state, test_game
 
 LEARNING_RATE = 1e-5
 CSV_SUFFIX = '_with_navigator'
-SAVE_DIR = "./checkpoints/ftwp_our_navigator_only"
-assert os.path.exists(SAVE_DIR), f"Save dir {SAVE_DIR} does not exist!"
+TEMP_SAVE_DIR = "./checkpoints/ftwp_our_navigator_only"
+assert os.path.exists(TEMP_SAVE_DIR), f"Save dir {TEMP_SAVE_DIR} does not exist!"
 
 TRAIN_SPLIT = 'train'
 # PART_VALID_SPLIT = 'partial_valid'
@@ -366,7 +366,7 @@ def get_model(checkpoint_path = None, init_func = Model_ucb1):
     model.cuda()
     return model
 
-def valid_all(model: Model, split = 'partial_valid', game_init_func = None):
+def valid_all(model: Model, split = 'fake_test_10', game_init_func = None):
     if game_init_func is None:
         game_init_func = GAME_INIT_FUNC
     game_paths = get_cv_games(split=split)
@@ -395,7 +395,7 @@ def train_repeat(testing = False):
         VALID_SPLIT = 'fake_valid_10'
         TEST_SPLIT = 'fake_test_10'
         repeat = 1
-        epoch = 5
+        epoch = 2
     else:
         repeat = 1
         epoch = 5
@@ -425,4 +425,21 @@ def train_repeat(testing = False):
                 # score, avg_step = valid_all(model, split=TEST_SPLIT, game_init_func=GAME_INIT_FUNC)
                 # logger.error(f'Full test score ({rp}) {ucb1_on}: {score}, average step {avg_step}')
                 # print(f'Full test score ({rp}) {ucb1_on}: {score}, average step {avg_step}')
-                model.save_checkpoint(base_path = SAVE_DIR, epoch=i, valid_score=score)
+                model.save_checkpoint(base_path = TEMP_SAVE_DIR, epoch=i, valid_score=score)
+
+
+def test_all_checkpoints(checkpoint_dir = TEMP_SAVE_DIR, testing = False):
+    checkpoint_paths = common.all_paths_with_suffix(checkpoint_dir, '.pth')
+    test_split = 'fake_test_10' if testing else TEST_SPLIT
+    for i, checkpoint_path in enumerate(checkpoint_paths):
+        msg = f'Evaluating {i}/{len(checkpoint_paths)} checkpoint: {checkpoint_path}'
+        print(msg)
+        logger.warning(msg)
+        model = get_model(checkpoint_path)
+        msg = f'Stop epoch: {model.stop_epoch}, valid score: {model.valid_score}'
+        print(msg) 
+        logger.warning(msg)
+        norm_score, average_step = valid_all(model, split = test_split)
+        msg = f'Checkpoint: {checkpoint_path}, test score: {norm_score}, average_step: {average_step}'
+        print(msg)
+        logger.error(msg)

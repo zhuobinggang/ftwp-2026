@@ -1,2 +1,4 @@
 from agent_navigator import *
-train_repeat(testing=False)
+print(f'TEMP_SAVE_DIR: {TEMP_SAVE_DIR}')
+train_repeat(testing=True)
+test_all_checkpoints(testing=True)
