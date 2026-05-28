@@ -390,6 +390,7 @@ def valid_all(model: Model, split = 'partial_valid', game_init_func = None):
     print(f'Validation on {split} norm_score: {norm_score}')
     return norm_score, average_step
 
+# NOTE: See doc/202605/recover_agent_navigator.md for detailed report
 def train_repeat(testing = False):
     global BEST_MODELS, MAX_TEST_STEP, TRAIN_SPLIT, VALID_SPLIT, TEST_SPLIT
     if testing:
