@@ -121,7 +121,7 @@ def extract_walkthrough_dataset_with_navigator(split = 'fake_test', test_game_pa
                     navigate_action = f'navigate to {entity}'
                     clean_navigate_commands = []
                     if navigate_action not in admissible_commands: # 可能出现循环导航，可以直接省略
-                        if game.room == game.itemMap[entity]['room']: # BUG: 本来应该进这里的却没有
+                        if game.room == game.itemMap[entity]['room']:
                             logger.warning(f'循环导航，省略当前指令，不需要置入数据集')
                             need_no_append_gamesteps = True
                         else:
@@ -130,9 +130,10 @@ def extract_walkthrough_dataset_with_navigator(split = 'fake_test', test_game_pa
                         logger.warning(f'导航指令生成并使用：{navigate_action}')
                         print(f'导航指令生成并使用：{navigate_action}')
                         game_step['action'] = navigate_action # 覆盖动作
-                        clean_navigate_commands = game.navigate_to_item(entity)
-                        for command in clean_navigate_commands:
-                            game.act(command)
+                        # clean_navigate_commands = game.navigate_to_item(entity)
+                        # for command in clean_navigate_commands:
+                        #     game.act(command)
+                        game.act(navigate_action) # 直接执行导航指令 TODO: 在csv中确认，navigate指令执行之后action_obs_pair只生成一条
                     cmd = non_go_command
                     cmd_index = next_non_go_index
             if not need_no_append_gamesteps:
