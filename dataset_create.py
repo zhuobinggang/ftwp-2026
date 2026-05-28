@@ -13,12 +13,16 @@ logger = logging.getLogger('dataset_create_taku')
 dbg = logger.debug
 import random
 
+# GAME PATHS
 BASE_PATH = common.GAME_BASE_PATH
 TRAIN_PATH = f'{BASE_PATH}/train'
 TEST_PATH = f'{BASE_PATH}/test'
 VALID_PATH = f'{BASE_PATH}/valid'
 
-GAME_INIT_FUNC = Game_with_navigator
+# GAME_INIT_FUNC = Game_with_navigator
+from game_cmd_gen import Game_command_generate
+GAME_INIT_FUNC = Game_command_generate
+print('dataset_create.py: Set GAME_INIT_FUNC to Game_command_generate for testing!')
 
 @lru_cache(maxsize=None)
 def all_game_paths(test_path = TEST_PATH):
@@ -33,7 +37,6 @@ def get_cv_games(path = BASE_PATH, split = 'fake_test'):
 # 3. 同上函数，我们会先将`take apple from fridge`替换成`take apple`
 # 4. 同上函数，如果是admissable actions中不存在的指令，我们也跳过
 def get_clean_clean_walkthrough(game_path):
-    assert GAME_INIT_FUNC == Game_with_navigator
     game = GAME_INIT_FUNC(game_path)
     game.reset()
     clean_walkthrough = game.clean_walkthrough()
@@ -62,7 +65,6 @@ def get_clean_clean_walkthrough(game_path):
 
 # TODO: 2026.5.19 需要测试
 def extract_walkthrough_dataset_with_navigator(split = 'fake_test', test_game_path = ''):
-    assert GAME_INIT_FUNC == Game_with_navigator, 'We need to use Game_with_navigator to generate the dataset.'
     if test_game_path:
         train_games = [test_game_path]
     else:
@@ -142,15 +144,15 @@ def extract_walkthrough_dataset_with_navigator(split = 'fake_test', test_game_pa
     return pd.DataFrame(gamesteps)
 
 
-def create_csv_dataset(outputpath = 'good_dataset', suffix = '_with_navigator', testing = False):
+def create_csv_dataset(outputpath = common.CSV_PATH, suffix = '_with_navigator', testing = False):
     dataset_names = ['fake_train_100','fake_valid_10', 'fake_test_10'] if testing else ['train', 'valid', 'test']
     for split in dataset_names:
         df = extract_walkthrough_dataset_with_navigator(split)
-        df.to_csv(os.path.join(outputpath,
-                        f'walkthrough_{split}{suffix}.csv'), index=False)
+        csv_save_path = os.path.join(outputpath, f'walkthrough_{split}{suffix}.csv')
+        df.to_csv(csv_save_path, index=False)
         
 
-def read_csv_dataset(inputpath = 'good_dataset', split = 'fake_test', suffix = '_with_navigator'):
+def read_csv_dataset(inputpath = common.CSV_PATH, split = 'fake_test', suffix = '_with_navigator'):
     path = os.path.join(inputpath,
                         f'walkthrough_{split}{suffix}.csv')
     print(path)

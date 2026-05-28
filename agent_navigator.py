@@ -36,11 +36,14 @@ BATCH_SIZE = 4 if common.LOCAL else 8
 
 DANGER_FILTER_ON = False # NOTE: 对于navigator only模型，danger filter不需要打开
 
-GAME_INIT_FUNC = Game_with_navigator
+# GAME_INIT_FUNC = Game_with_navigator
+from game_cmd_gen import Game_command_generate
+GAME_INIT_FUNC = Game_command_generate
+print('agent_navigator.py: Set GAME_INIT_FUNC to Game_command_generate for testing!')
 
 BEST_MODELS = [-1, -1, -1]
 
-def bert_tokenize_prompt_cut_theirs(game: Game_with_navigator, action: str):
+def bert_tokenize_prompt_cut_theirs(game: GAME_INIT_FUNC, action: str):
     toker = default_tokenizer()
     CLS, SEP = special_tokens_dict().cls, special_tokens_dict().sep
     text = f'{CLS} '
@@ -64,7 +67,7 @@ def bert_tokenize_prompt_cut_theirs(game: Game_with_navigator, action: str):
     return tokens, text_b_tokens
 
 # NOTE: 使用CLS token作为解码token
-def to_bert_input_theirs(game: Game_with_navigator, action: str, positive = True, need_padding = True):
+def to_bert_input_theirs(game: GAME_INIT_FUNC, action: str, positive = True, need_padding = True):
     a_tokens, b_tokens = bert_tokenize_prompt_cut_theirs(game, action) # (length)
     prompt_ids = a_tokens + b_tokens
     attention_mask = [1] * len(prompt_ids)
@@ -103,7 +106,7 @@ def row_to_game_state(row):
     return game_state
 
 def test_row_to_game_state():
-    df = read_csv_dataset(inputpath = 'good_dataset', split = 'fake_test', suffix = '_with_navigator')
+    df = read_csv_dataset(inputpath = common.CSV_PATH, split = 'fake_test', suffix = '_with_navigator')
     row = df.iloc[0]
     game_state = row_to_game_state(row)
     print(game_state)
@@ -366,7 +369,6 @@ def get_model(checkpoint_path = None, init_func = Model_ucb1):
 def valid_all(model: Model, split = 'partial_valid', game_init_func = None):
     if game_init_func is None:
         game_init_func = GAME_INIT_FUNC
-        assert GAME_INIT_FUNC == Game_with_navigator
     game_paths = get_cv_games(split=split)
     score = 0
     max_score = 0

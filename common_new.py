@@ -18,6 +18,9 @@ else:
 
 # dataset_base = os.environ.get('DATASET_BASE')
 GAME_BASE_PATH = f"{dataset_base}/ftwp/games"
+# CSV_PATH = f"good_dataset/standard" # For training
+CSV_PATH = f"good_dataset/cmd_gen"
+print(f'common_new.py: Set CSV_PATH to {CSV_PATH}')
 
 def get_time_str():
     from datetime import datetime
@@ -488,8 +491,12 @@ def all_paths_with_suffix(folder_path, suffix):
             results.append(file_path)
     return results
 
-def get_writer():
+def get_writer(base_log_dir="runs"):
+    import time
     from tensorboardX import SummaryWriter
-    writer = SummaryWriter()
+    # 使用纳秒级时间戳
+    #timestamp = time.time_ns()
+    log_dir = os.path.join(base_log_dir, f'run_{get_time_str()}')
+    writer = SummaryWriter(log_dir=log_dir)
     writer.global_step = 0
     return writer
