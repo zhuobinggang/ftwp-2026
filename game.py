@@ -42,8 +42,11 @@ class Game:
         self.inventory_raw = self.info['inventory']
         self.description_raw = self.info['description']
         return self.obs, self.info
+    def before_act_hook(self, action):
+        pass
     def act(self, action): # obs无更改
         action = action.strip()
+        self.before_act_hook(action)
         self.obs, self.reward, self.done, self.info = self.env.step(action)
         self.room = common.extract_room_name(self.info['description']) # 每一步都更新房间信息
         self.inventory_raw = self.info['inventory'] # 每一步都更新库存信息
@@ -86,17 +89,14 @@ class Game_with_history(Game):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.action_obs_pairs = []
-    def action_obs_pair_hook(self, action, obs):
+    def after_act_hook(self, action, obs):
         # This method can be overridden by subclasses to modify action-obs pairs
         return action, obs.replace('\n', ' ').strip() # 默认的hook是把obs中的换行符替换成空格，并去除首尾空格
-    def before_act_hook(self, action):
-        # This method can be overridden by subclasses to do something before act
-        pass
-    def act(self, action): # obs无更改
-        self.before_act_hook(action)
+    def act(self, action, do_not_append=False): # obs无更改
         self.obs, self.reward, self.done, self.info = super().act(action)
-        new_action, new_obs = self.action_obs_pair_hook(action, self.obs)
-        self.action_obs_pairs.append((new_action, new_obs)) # TODO: add hook
+        new_action, new_obs = self.after_act_hook(action, self.obs)
+        if not do_not_append:
+            self.action_obs_pairs.append((new_action, new_obs)) # TODO: add hook
         return self.obs, self.reward, self.done, self.info
     def action_history(self, history_window = 100, seperator='>', no_action_text=''):
         action_obs_pairs = self.action_obs_pairs
@@ -113,9 +113,9 @@ class Game_handle_recipe(Game_with_history):
         self.recipe_raw = ''
         self.recipe = ''
         self.obs_raw = ''
-    def action_obs_pair_hook(self, action, obs):
+    def after_act_hook(self, action, obs):
         # This method can be overridden by subclasses to modify action-obs pairs
-        action, new_obs = super().action_obs_pair_hook(action, obs)
+        action, new_obs = super().after_act_hook(action, obs)
         if action == 'examine cookbook' and common.is_recipe_feedback(obs):
             self.recipe_raw = common.extract_recipe(obs, need_clean=False)
             self.recipe = common.extract_recipe(self.recipe_raw, need_clean=True)
@@ -235,11 +235,11 @@ class Game_move_action_augment(Game_handle_recipe):
     def before_act_hook(self, action):
         if action.startswith('go'):
             self.prev_room = common.extract_room_name(self.info['description'])
-    def action_obs_pair_hook(self, action, obs): # after act hook
-        action, new_obs = super().action_obs_pair_hook(action, obs)
+    def after_act_hook(self, action, obs): # after act hook
+        action, new_obs = super().after_act_hook(action, obs)
         if action.startswith('go'):
             prev_room = self.prev_room
-            current_room = common.extract_room_name(self.info['description'])
+            current_room = self.room # setted in Game.act
             new_obs = f'From {prev_room} to {current_room}.'
         return action, new_obs
     
@@ -286,8 +286,8 @@ class Game_handle_worldmap(Game_move_action_augment):
         self.obs, self.info = super().reset()
         self.worldMap[self.room] = {}
         return self.obs, self.info
-    def action_obs_pair_hook(self, action, obs): # after move action, update worldMap and itemMap
-        action, obs = super().action_obs_pair_hook(action, obs)
+    def after_act_hook(self, action, obs): # after move action, update worldMap and itemMap
+        action, obs = super().after_act_hook(action, obs)
         if action.startswith('go'):
             current_room = self.room # setted in Game.act
             prev_room = self.prev_room # setted in Game_move_action_augment.before_act_hook
@@ -319,7 +319,7 @@ class Game_handle_worldmap(Game_move_action_augment):
         # 代理navigate命令，循环act goes
         if action.startswith('navigate to '):
             # logger.warning(f'{action}')
-            prev_room = self.prev_room # setted in Game_move_action_augment.before_act_hook
+            prev_room = self.room # 目前还没act，所以self.prev_room还是上一个房间
             entity_or_room = action.replace('navigate to ', '')
             path = []
             if entity_or_room in self.itemMap:
@@ -328,10 +328,15 @@ class Game_handle_worldmap(Game_move_action_augment):
             elif entity_or_room in self.worldMap:
                 target_room = entity_or_room
                 path = self.navigate_to_room(target_room)
-            for temp_action in path: # 导航到目标房间
-                self.obs_raw, self.reward, self.done, self.info = super().act(temp_action)
-            obs = f'Navigate from {prev_room} to {target_room}.'
-            logger.debug(f'{obs}, path: {path}')
+            if prev_room == target_room:
+                print(f'Already in {target_room}, no need to execute {action}. 可能是循环导航。')
+                logger.warning(f'Already in {target_room}, no need to execute {action}.可能是循环导航。')
+            else:
+                for temp_action in path: # 导航到目标房间
+                    self.obs_raw, self.reward, self.done, self.info = super().act(temp_action, do_not_append=True) # 执行导航指令不记录action_obs_pair
+                navigate_obs = f'Navigate from {prev_room} to {target_room}.'
+                self.action_obs_pairs.append((action, navigate_obs)) # 记录导航指令的action_obs_pair
+                logger.debug(f'{navigate_obs}, path: {path}')
         else: # 否则正常执行
             self.obs_raw, self.reward, self.done, self.info = super().act(action)
         return self.obs, self.reward, self.done, self.info
