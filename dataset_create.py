@@ -22,14 +22,8 @@ GAME_INIT_FUNC = Game_with_navigator
 
 @lru_cache(maxsize=None)
 def all_game_paths(test_path = TEST_PATH):
-    import os
-    results = []
-    # 遍历文件夹中的所有文件
-    for filename in os.listdir(test_path):
-        if filename.endswith('.z8'):  # 只处理 .z8 文件
-            file_path = os.path.join(test_path, filename)
-            results.append(file_path)
-    return results
+    return common.all_paths_with_suffix(test_path, '.z8')
+
 
 def get_cv_games(path = BASE_PATH, split = 'fake_test'):
     return all_game_paths(f'{path}/{split}')

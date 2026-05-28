@@ -21,7 +21,7 @@ from game import Game_with_navigator, Game_state_clean, Game_state, test_game
 
 LEARNING_RATE = 1e-5
 CSV_SUFFIX = '_with_navigator'
-SAVE_DIR = common.CHECKPOINT_DIR
+SAVE_DIR = "./checkpoints/ftwp_our_navigator_only"
 assert os.path.exists(SAVE_DIR), f"Save dir {SAVE_DIR} does not exist!"
 
 TRAIN_SPLIT = 'train'
@@ -362,7 +362,7 @@ def train(model, split = 'train', log_name = '', writer = None):
 
 def get_model(checkpoint_path = None, init_func = Model_ucb1):
     model = init_func()
-    model.prefix = 'roberta_theirs'
+    model.prefix = 'navigator_only'
     model.init_bert()
     if checkpoint_path:
         model.load_checkpoint(checkpoint_path)

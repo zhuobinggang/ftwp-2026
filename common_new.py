@@ -9,14 +9,15 @@ if dir_path.is_dir():
     LOCAL = False
     print("处于HPC环境")
     dataset_base = '/work/zb023/datasets'
+    CHECKPOINT_DIR = '/work/zb023/checkpoints/ftwp/navigator_only'
 else:
     LOCAL = True
     print("处于本地测试环境")
     dataset_base = '/home/zhuobinggang/research/datasets'
+    CHECKPOINT_DIR = '/home/zhuobinggang/checkpoints/ftwp/navigator_only'
 
 # dataset_base = os.environ.get('DATASET_BASE')
 GAME_BASE_PATH = f"{dataset_base}/ftwp/games"
-CHECKPOINT_DIR = os.path.abspath("./checkpoints/ftwp_our_navigator_only")
 
 def get_time_str():
     from datetime import datetime
@@ -475,3 +476,14 @@ def extract_cook_command_entity(text):
         # group(1) 拿到的就是 (.*?) 捕获到的内容
         return match.group(1).strip()
     return None
+
+
+def all_paths_with_suffix(folder_path, suffix):
+    import os
+    results = []
+    # 遍历文件夹中的所有文件
+    for filename in os.listdir(folder_path):
+        if filename.endswith(suffix):  # 只处理指定后缀的文件
+            file_path = os.path.join(folder_path, filename)
+            results.append(file_path)
+    return results
