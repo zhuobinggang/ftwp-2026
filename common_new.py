@@ -487,3 +487,9 @@ def all_paths_with_suffix(folder_path, suffix):
             file_path = os.path.join(folder_path, filename)
             results.append(file_path)
     return results
+
+def get_writer():
+    from tensorboardX import SummaryWriter
+    writer = SummaryWriter()
+    writer.global_step = 0
+    return writer
