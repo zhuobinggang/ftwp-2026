@@ -1,3 +1,7 @@
+## 2026.5.29
+
+`/home/zhuobinggang/research/datasets/ftwp/games/train/tw-cooking-recipe1+cook+cut+open+drop+go9-yoKpfN7qcg7pUQ0P.z8`这个游戏不能自动生成eat meal指令，看看cmd generate是怎么处理的。它只要库存中存在meal就会生成这个……我们真的能信任command filter么……
+
 ## 记录一下指令过滤的规则
 
 1. 过滤所有以['examine', 'close', 'eat', 'look', 'inventory', 'drink', 'put', 'insert']开头的指令
@@ -13,3 +17,4 @@
 
 1. 在指令过滤中，slice（或者dice或者chop）过的物品不会再提供相同指令，但是指令合成会再次提供
 2. 同上，cook指令也不会二次提供
+3. 2026.5.29: 引擎生成的指令中可能不包含必要的eat meal，而我们的合成指令中包含，这可能是性能下降2.5%的原因。

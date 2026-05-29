@@ -18,9 +18,19 @@ else:
 
 # dataset_base = os.environ.get('DATASET_BASE')
 GAME_BASE_PATH = f"{dataset_base}/ftwp/games"
-CSV_PATH = f"good_dataset/standard" # filter commands
+print('设置游戏路径为：', GAME_BASE_PATH)
+# CSV_PATH = f"good_dataset/standard" # filter commands
 # CSV_PATH = f"good_dataset/cmd_gen"
-# print(f'common_new.py: Set CSV_PATH to {CSV_PATH}')
+GAME_WITH_NAVIGATOR = False
+COMMAND_FILTER = True
+if GAME_WITH_NAVIGATOR:
+    if COMMAND_FILTER:
+        CSV_PATH = f"good_dataset/standard"
+    else:
+        CSV_PATH = f"good_dataset/cmd_gen"
+else:
+    CSV_PATH = f"good_dataset/without_navigator"
+print(f'设置数据集路径CSV_PATH为{CSV_PATH}')
 
 def get_time_str():
     from datetime import datetime

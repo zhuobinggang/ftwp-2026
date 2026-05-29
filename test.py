@@ -1,2 +1,3 @@
-import agent_navigator as agent
-import game
+from agent_navigator import *
+
+test_all_checkpoints()

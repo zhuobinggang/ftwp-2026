@@ -7,7 +7,7 @@ from tqdm import tqdm
 from functools import lru_cache
 from game import Game_with_navigator, Game_handle_worldmap
 import common_new as common
-from common_new import COMMAND_LIST_SHUFFLE
+from common_new import COMMAND_LIST_SHUFFLE, GAME_WITH_NAVIGATOR
 import logging
 logger = logging.getLogger('dataset_create_taku')
 dbg = logger.debug
@@ -19,10 +19,8 @@ TRAIN_PATH = f'{BASE_PATH}/train'
 TEST_PATH = f'{BASE_PATH}/test'
 VALID_PATH = f'{BASE_PATH}/valid'
 
-GAME_WITH_NAVIGATOR = True
-
 GAME_INIT_FUNC = Game_with_navigator if GAME_WITH_NAVIGATOR else Game_handle_worldmap
-
+OUTPUT_CSV_SUFFIX = '' # 2026.5.29 以后以文件夹区分是否使用navigator，csv文件不再区分后缀
 
 # from game_cmd_gen import Game_command_generate
 # GAME_INIT_FUNC = Game_command_generate
@@ -54,6 +52,8 @@ def get_clean_clean_walkthrough(game_path):
         else: # 如果指令在admissible_commands中，则正常执行
             clean_clean_walkthrough.append(cmd)
             game.act(cmd)
+    if not game.done:
+        raise ValueError(f'Game {game_path} walkthrough cannot finish the game, current admissible_commands {admissible_commands}\ncurrent command {cmd}')
     assert game.done
     return clean_clean_walkthrough
 
@@ -63,6 +63,7 @@ def extract_walkthrough_dataset_with_navigator(split = 'fake_test', test_game_pa
         train_games = [test_game_path]
     else:
         train_games = get_cv_games(split = split)
+    # train_games = train_games[299:] # NOTE: 改BUG用的，正式生成数据集时需要删除
     gamesteps = []
     for game_path in tqdm(train_games):
         clean_walkthrough = get_clean_clean_walkthrough(game_path)
@@ -96,7 +97,7 @@ def extract_walkthrough_dataset_with_navigator(split = 'fake_test', test_game_pa
             }
             need_no_execute = False # 如果可以导航的话，当前的go指令就不用执行了
             need_no_append_gamesteps = False # 如果出现循环导航，就不需要添加当前game_step
-            if cmd.startswith('go'): # 导航到物品
+            if cmd.startswith('go') and GAME_WITH_NAVIGATOR: # 导航到物品
                 next_non_go_index = cmd_index + 1
                 while next_non_go_index < len(clean_walkthrough) and clean_walkthrough[next_non_go_index].startswith('go'):
                     next_non_go_index += 1
@@ -136,7 +137,7 @@ def extract_walkthrough_dataset_with_navigator(split = 'fake_test', test_game_pa
     return pd.DataFrame(gamesteps)
 
 
-def create_csv_dataset(outputpath = common.CSV_PATH, suffix = '_with_navigator', testing = False):
+def create_csv_dataset(outputpath = common.CSV_PATH, suffix = OUTPUT_CSV_SUFFIX, testing = False):
     dataset_names = ['fake_train_100','fake_valid_10', 'fake_test_10'] if testing else ['train', 'valid', 'test']
     for split in dataset_names:
         df = extract_walkthrough_dataset_with_navigator(split)
@@ -144,10 +145,10 @@ def create_csv_dataset(outputpath = common.CSV_PATH, suffix = '_with_navigator',
         df.to_csv(csv_save_path, index=False)
         
 
-def read_csv_dataset(inputpath = common.CSV_PATH, split = 'fake_test', suffix = '_with_navigator'):
+def read_csv_dataset(inputpath = common.CSV_PATH, split = 'fake_test', suffix = OUTPUT_CSV_SUFFIX):
     path = os.path.join(inputpath,
                         f'walkthrough_{split}{suffix}.csv')
-    print(path)
+    print(f'读取数据集： {path}')
     df= pd.read_csv(path)
     df['action_obs_pairs'] = df['action_obs_pairs'].apply(eval)
     df['admissible_commands'] = df['admissible_commands'].apply(eval)

@@ -220,6 +220,15 @@ class Game_handle_recipe(Game_with_history):
         if self.recipe != '': # 已经找到食谱了
             return cmds_without_examine_cookbook
         return cmds_without_examine_cookbook + ['examine cookbook']
+    def try_add_eat_meal_if_necessary(self, cmds):
+        if 'eat meal' in cmds:
+            return cmds
+        entities_in_inventory = self.filter_enetities_in_inventory(self.info['entities'])
+        if 'meal' in entities_in_inventory:
+            print('生成了eat meal指令……说明数据集有问题')
+            return cmds + ['eat meal']
+        else:
+            return cmds
     def get_admissible_commands(self):
         cmds = super().get_admissible_commands()
         # TODO: 对于cook指令，只有出现在ingredients中才保留
@@ -228,6 +237,7 @@ class Game_handle_recipe(Game_with_history):
         cmds = self.filter_take_commands(cmds)
         cmds = self.filter_prepare_meal_command(cmds)
         cmds = self.filter_examine_cookbook_command(cmds)
+        cmds = self.try_add_eat_meal_if_necessary(cmds)
         return cmds
     
 # NOTE: 在移动命令被执行后，obs改为prev_room to current_room。这样能够给模型一个直观的记忆。因为在prompt中没有上一个房间的信息，应该很有帮助。
