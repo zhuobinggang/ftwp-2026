@@ -7,6 +7,7 @@ from textworld import EnvInfos, gym
 from functools import lru_cache
 from recordclass import recordclass
 import logging
+import copy
 
 logger = logging.getLogger('game.py')
 dbg = logger.debug
@@ -150,11 +151,11 @@ class Game_handle_recipe(Game_with_history):
         other_cmds = [cmd for cmd in cmds if not cmd.startswith('cook ')]
         if self.recipe == '': # 没有食谱的情况下不cook任何东西
             return other_cmds
-        ingredients = self.ingredients_from_recipe()
+        entities_in_recipe = self.filter_enetities_in_ingredients(self.info['entities'])
         entities = [common.extract_cook_command_entity(cook_cmd) for cook_cmd in cook_cmds]
         command_entity_pairs = list(zip(cook_cmds, entities))
         for cmd, entity in command_entity_pairs:
-            if common.whole_word_inside(entity, ingredients):
+            if entity in entities_in_recipe:
                 other_cmds.append(cmd)
         return other_cmds
     def filter_take_commands(self, cmds):
@@ -163,14 +164,13 @@ class Game_handle_recipe(Game_with_history):
         other_cmds = [cmd for cmd in cmds if not cmd.startswith('take ')]
         if self.recipe == '': # 没有食谱的情况下不拿任何东西
             return other_cmds
-        ingredients = self.ingredients_from_recipe()
-        entities = [take_cmd.replace('take ', '').strip() for take_cmd in take_cmds]
-        command_entity_pairs = list(zip(take_cmds, entities))
-        for cmd, entity in command_entity_pairs:
-            if common.whole_word_inside(entity, ingredients):
-                other_cmds.append(cmd)
-            if entity == 'knife': # 2026.5.26 不要过滤掉knife
-                other_cmds.append(cmd)
+        entities_in_recipe = self.filter_enetities_in_ingredients(self.info['entities'])
+        entities_in_recipe += ['knife']
+        entities_in_recipe = set(entities_in_recipe)
+        entities_can_take = set([take_cmd.replace('take ', '').strip() for take_cmd in take_cmds])
+        entities_can_take = entities_can_take & entities_in_recipe
+        for entity in entities_can_take:
+            other_cmds.append('take ' + entity) 
         return other_cmds
     def filter_entities_in_description(self, candidate_entities = None, use_raw_description = False):
         entities = []
@@ -181,15 +181,19 @@ class Game_handle_recipe(Game_with_history):
                 entities.append(entity)
         return entities
     def try_add_take_commands(self, cmds):
-        # NOTE: 在库存满了的时候不能take，但是我们希望能继续生成用于负反馈
-        # 出现在description和recipe中的实体，再包括knife都可以被take
-        entities_in_recipe = self.filter_enetities_in_ingredients(self.info['entities'])
-        entities_in_recipe += ['knife']
-        entities_in_description = self.filter_entities_in_description(self.info['entities'])
-        entities_can_take = set(entities_in_recipe) & set(entities_in_description)
-        take_commands_added = ['take ' + entity for entity in entities_can_take]
-        # print(f'Added take commands: {take_commands_added}')
-        return take_commands_added + cmds
+        take_cmds = [cmd for cmd in cmds if cmd.startswith('take ')]
+        if len(take_cmds) > 0:
+            return cmds # 已经有take命令了就不添加了。 NOTE: 在加入这一判断之前可能生成了重复的take命令；问题应该不大，只是训练时候可能会有重复的take命令被选中，另一方面推理时候可能耗时长一些--- IGNORE ---
+        else:
+            # NOTE: 在库存满了的时候不能take，但是我们希望能继续生成用于负反馈
+            # 出现在description和recipe中的实体，再包括knife都可以被take
+            entities_in_recipe = self.filter_enetities_in_ingredients(self.info['entities'])
+            entities_in_recipe += ['knife']
+            entities_in_description = self.filter_entities_in_description(self.info['entities'])
+            entities_can_take = set(entities_in_recipe) & set(entities_in_description)
+            take_commands_added = ['take ' + entity for entity in entities_can_take]
+            # print(f'Added take commands: {take_commands_added}')
+            return take_commands_added + cmds
 
     def filter_prepare_meal_command(self, cmds):
         # NOTE: 只有当食谱中出现的食材都在库存中时才保留prepare meal命令
@@ -199,8 +203,7 @@ class Game_handle_recipe(Game_with_history):
         cmds_without_prepare_meal.remove('prepare meal')
         if self.recipe == '': # 没找到食谱
             return cmds_without_prepare_meal
-        room = self.room
-        if room.lower() != 'kitchen': # 不在厨房
+        if self.room.lower() != 'kitchen': # 不在厨房
             return cmds_without_prepare_meal
         entities_in_inventory = self.filter_enetities_in_inventory(self.info['entities'])
         entities_in_recipe = self.filter_enetities_in_ingredients(self.info['entities'])
@@ -418,7 +421,6 @@ class Game_state_clean(Game_state):
         self.recipe_good = ''
         self.inventory_good = ''
         self.description_good = ''
-        self.action_obs_pairs_good = []
         self.available_commands_good = []
     def recipe_clean(self):
         return self.recipe_good
@@ -430,8 +432,24 @@ class Game_state_clean(Game_state):
         return self.available_commands_good
     def get_admissible_commands(self):
         return self.available_commands_good
+    
+class Game_state_clean_with_worldmap(Game_state_clean):
+    def __init__(self):
+        super().__init__()
+        self.worldMap = {}
+        self.itemMap = {}
 
-
+def game_state_from_game(game: Game_handle_worldmap):
+    game_state = Game_state_clean_with_worldmap()
+    game_state.recipe_good = game.recipe_clean()
+    game_state.inventory_good = game.inventory_clean()
+    game_state.description_good = game.description_clean()
+    game_state.available_commands_good = game.get_admissible_commands().copy()
+    game_state.worldMap = copy.deepcopy(game.worldMap)
+    game_state.itemMap = copy.deepcopy(game.itemMap)
+    game_state.room = game.room
+    game_state.action_obs_pairs = game.action_obs_pairs.copy()
+    return game_state
 
 def test_game(game: Game_handle_worldmap, model = Fake_model(), max_step = 100, need_print = False):
     # import game_for_llm
@@ -447,7 +465,7 @@ def test_game(game: Game_handle_worldmap, model = Fake_model(), max_step = 100, 
     counter = 0
     final_action = ''
     while counter < max_step:
-        action = model.predict(game)
+        action = model.predict(game_state_from_game(game))
         prev_moves = game.info['moves']
         obs, reward, done, info = game.act(action)
         if need_print:

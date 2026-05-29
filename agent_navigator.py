@@ -36,29 +36,28 @@ BATCH_SIZE = 4 if common.LOCAL else 8
 
 DANGER_FILTER_ON = False # NOTE: 对于navigator only模型，danger filter不需要打开
 
-# GAME_INIT_FUNC = Game_with_navigator
-from game_cmd_gen import Game_command_generate
-GAME_INIT_FUNC = Game_command_generate
-print('agent_navigator.py: Set GAME_INIT_FUNC to Game_command_generate for testing!')
+GAME_INIT_FUNC = Game_with_navigator
+# from game_cmd_gen import Game_command_generate
+#print('agent_navigator.py: Set GAME_INIT_FUNC to Game_command_generate for testing!')
 
 BEST_MODELS = [-1, -1, -1]
 
-def bert_tokenize_prompt_cut_theirs(game: GAME_INIT_FUNC, action: str):
+def bert_tokenize_prompt_cut_theirs(game_state: Game_state_clean, action: str):
     toker = default_tokenizer()
     CLS, SEP = special_tokens_dict().cls, special_tokens_dict().sep
     text = f'{CLS} '
     # before_history_text += f"Room: {game_state.room} {SEP} "
-    inventory_text = game.inventory_clean().strip()
+    inventory_text = game_state.inventory_clean().strip()
     if inventory_text == '':
         inventory_item_count = 0
         inventory_text = EMPTY_INVENTORY
     else:
         inventory_item_count = 1 + inventory_text.count(',')
     text += f'{inventory_item_count} {inventory_text} '
-    recip_text = game.recipe_clean().strip()
+    recip_text = game_state.recipe_clean().strip()
     if recip_text == '':
         recip_text = EMPTY_RECIPE
-    text += f"{recip_text} {game.description_clean()} " # NOTE: 2025.5.11 space is important!
+    text += f"{recip_text} {game_state.description_clean()} " # NOTE: 2025.5.11 space is important!
     text_b = f"{SEP} {action} {SEP}"
     tokens = toker.encode(text, add_special_tokens=False) # list of numbers
     text_b_tokens = toker.encode(text_b, add_special_tokens=False)
@@ -67,8 +66,8 @@ def bert_tokenize_prompt_cut_theirs(game: GAME_INIT_FUNC, action: str):
     return tokens, text_b_tokens
 
 # NOTE: 使用CLS token作为解码token
-def to_bert_input_theirs(game: GAME_INIT_FUNC, action: str, positive = True, need_padding = True):
-    a_tokens, b_tokens = bert_tokenize_prompt_cut_theirs(game, action) # (length)
+def to_bert_input_theirs(game_state: Game_state_clean, action: str, positive = True, need_padding = True):
+    a_tokens, b_tokens = bert_tokenize_prompt_cut_theirs(game_state, action) # (length)
     prompt_ids = a_tokens + b_tokens
     attention_mask = [1] * len(prompt_ids)
     pad_size = 0
@@ -119,8 +118,8 @@ def dataloader_get(split = 'train'):
     for row_idx, row in tqdm(csv.iterrows(), total=len(csv), desc="Dataset processing"):
         state = row_to_game_state(row) # NOTE: 2025.5.5 打乱以提高模型的泛化能力
         # assert state.get_admissible_commands() == row['admissible_commands'] # CHECKED 26.5.24
-        negative_commands = [command for command in state.get_admissible_commands() if command != row['action']]
-        negative_commands = negative_commands[:NEGATIVE_SAMPLE_SIZE]
+        all_negative_commands = [command for command in state.get_admissible_commands() if command != row['action']]
+        negative_commands = random.sample(all_negative_commands, min(NEGATIVE_SAMPLE_SIZE, len(all_negative_commands)))
         for command in negative_commands:
             bert_input = to_bert_input_theirs(state, command, positive=False, need_padding=True)
             bert_inputs.append(bert_input)
@@ -161,14 +160,15 @@ def batch_predict(bert, batch_bert_input):
 def get_next_command_batch(bert, game_state: Game_state):
     # 对于每一个action，计算它的概率
     bert_inputs = []
-    for command in game_state.get_admissible_commands():
+    admissible_commands = game_state.get_admissible_commands()
+    for command in admissible_commands:
         bert_input = to_bert_input_theirs(game_state, command, positive=True, need_padding=True)
         bert_inputs.append(bert_input)
     command_logits = []
     for batch_bert_input in chunk(bert_inputs, BATCH_SIZE):
         command_logits += batch_predict(bert, batch_bert_input)
     command_index = np.argmax(command_logits)
-    max_prob_command = game_state.get_admissible_commands()[command_index]
+    max_prob_command = admissible_commands[command_index]
     # beutiful_print_command_and_probs game_state.get_admissible_commands(), command_logits)
     result = NextCommandResult(command_index, max_prob_command, command_logits)
     return result
@@ -327,6 +327,7 @@ class Model_ucb1(Model):
             logger.debug(f'Inventory: {game_state.action_obs_pairs[-5:]}\n')
             beutiful_print_command_and_probs(actions, action_prob, log_func=logger.debug)
             logger.debug(f'Action: {best_action}\n\n')
+        assert all_actions == game_state.get_admissible_commands()
         return best_action
     
 def train(model, split = 'train', log_name = '', writer = None):

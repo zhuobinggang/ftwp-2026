@@ -2,13 +2,14 @@
 # 再看看加上ucb1的结果
 import common_new as common
 import os
-from game_cmd_gen import Game_command_generate
+# from game_cmd_gen import Game_command_generate
+from game import Game_with_navigator
 import random
 from tqdm import tqdm
 
 MAX_STEPS = 100
 
-def random_act(game: Game_command_generate):
+def random_act(game: Game_with_navigator):
     _ = game.reset()
     counter = 0
     for i in range(MAX_STEPS):
@@ -38,7 +39,7 @@ def run():
     scores = []
     max_scores = []
     for game_path in tqdm(all_valid_game_paths, desc="Running random agent"):
-        game = Game_command_generate(game_path)
+        game = Game_with_navigator(game_path)
         info = random_act(game)
         moves.append(info['our_moves'])
         scores.append(info['score'])
@@ -47,7 +48,7 @@ def run():
 
 def run_test():
     all_valid_game_paths = common.all_paths_with_suffix(os.path.join(common.GAME_BASE_PATH, 'valid'), '.z8')
-    game = Game_command_generate(all_valid_game_paths[0])
+    game = Game_with_navigator(all_valid_game_paths[0])
     info = random_act(game)
     print(f"{info['score']} / {info['max_score']} in {info['our_moves']} moves")
     return info

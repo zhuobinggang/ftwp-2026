@@ -5,7 +5,7 @@ import re
 import pandas as pd
 from tqdm import tqdm
 from functools import lru_cache
-from game import Game_with_navigator
+from game import Game_with_navigator, Game_handle_worldmap
 import common_new as common
 from common_new import COMMAND_LIST_SHUFFLE
 import logging
@@ -19,10 +19,14 @@ TRAIN_PATH = f'{BASE_PATH}/train'
 TEST_PATH = f'{BASE_PATH}/test'
 VALID_PATH = f'{BASE_PATH}/valid'
 
-# GAME_INIT_FUNC = Game_with_navigator
-from game_cmd_gen import Game_command_generate
-GAME_INIT_FUNC = Game_command_generate
-print('dataset_create.py: Set GAME_INIT_FUNC to Game_command_generate for testing!')
+GAME_WITH_NAVIGATOR = True
+
+GAME_INIT_FUNC = Game_with_navigator if GAME_WITH_NAVIGATOR else Game_handle_worldmap
+
+
+# from game_cmd_gen import Game_command_generate
+# GAME_INIT_FUNC = Game_command_generate
+# print('dataset_create.py: Set GAME_INIT_FUNC to Game_command_generate for testing!')
 
 @lru_cache(maxsize=None)
 def all_game_paths(test_path = TEST_PATH):
@@ -44,19 +48,9 @@ def get_clean_clean_walkthrough(game_path):
     for cmd in clean_walkthrough:
         if game.done:
             break
-        # take apple from fridge -> take apple
-        if cmd.startswith('take'):
-            cmd = re.sub(r'\sfrom.*$', '', cmd)
         admissible_commands = game.get_admissible_commands()
-        if cmd not in admissible_commands: # 可能存在admissible_commands中没有的指令，比如eat meal是
-            if cmd == 'eat meal':
-                logger.debug(f'Eat meal not in admissible_commands, I will add it to make sure the game can done.')
-                clean_clean_walkthrough.append(cmd)
-                game.act(cmd)
-            else:
-                # print(f'Command {cmd} not in {admissible_commands}, I will skip it.')
-                # logger.warning(f'Command {cmd} not in {admissible_commands}, I will skip it.') # NOTE：大量存在，主要是open指令会被反复执行
-                pass
+        if cmd not in admissible_commands: # 可能存在admissible_commands中没有的指令，比如反复open door之类的，直接跳过，只要保证game.done就行
+            pass
         else: # 如果指令在admissible_commands中，则正常执行
             clean_clean_walkthrough.append(cmd)
             game.act(cmd)
@@ -77,15 +71,12 @@ def extract_walkthrough_dataset_with_navigator(split = 'fake_test', test_game_pa
         cmd_index = 0
         game = GAME_INIT_FUNC(game_path)
         game.reset()
-        assert game.action_obs_pairs == [], f'At the beginning of the game, action_obs_pairs should be empty, but got {game.action_obs_pairs}'
+        assert game.action_obs_pairs == []
         while cmd_index < len(clean_walkthrough):
             cmd = clean_walkthrough[cmd_index]
             if game.done:
                 break
             admissible_commands = game.get_admissible_commands().copy() # NOTE: 这里必须copy，因为后面可能会修改admissible_commands
-            if cmd == 'eat meal': # 修正admissible_commands
-                # logger.debug(f'Eat meal not in admissible_commands, I will add it to make sure the game can done.')
-                admissible_commands.append(cmd)
             random.shuffle(admissible_commands) # NOTE：确保这是唯一一次shuffle
             game_step = {
                 'game_path': os.path.split(game_path)[-1],
@@ -103,8 +94,8 @@ def extract_walkthrough_dataset_with_navigator(split = 'fake_test', test_game_pa
                 # 'entities': game.info['entities'],
                 'max_score': game.info['max_score'],
             }
-            need_no_execute = False
-            need_no_append_gamesteps = False
+            need_no_execute = False # 如果可以导航的话，当前的go指令就不用执行了
+            need_no_append_gamesteps = False # 如果出现循环导航，就不需要添加当前game_step
             if cmd.startswith('go'): # 导航到物品
                 next_non_go_index = cmd_index + 1
                 while next_non_go_index < len(clean_walkthrough) and clean_walkthrough[next_non_go_index].startswith('go'):

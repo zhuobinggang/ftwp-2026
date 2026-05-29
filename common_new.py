@@ -18,9 +18,9 @@ else:
 
 # dataset_base = os.environ.get('DATASET_BASE')
 GAME_BASE_PATH = f"{dataset_base}/ftwp/games"
-# CSV_PATH = f"good_dataset/standard" # For training
-CSV_PATH = f"good_dataset/cmd_gen"
-print(f'common_new.py: Set CSV_PATH to {CSV_PATH}')
+CSV_PATH = f"good_dataset/standard" # filter commands
+# CSV_PATH = f"good_dataset/cmd_gen"
+# print(f'common_new.py: Set CSV_PATH to {CSV_PATH}')
 
 def get_time_str():
     from datetime import datetime
@@ -460,10 +460,10 @@ def print_list_differences(list1, list2):
     
     if only_in_a:
         print(f"仅在数组 A 中存在的元素: {list(only_in_a)}")
-        print(f"数组B: {list(set2)}")
+    #     print(f"数组B: {list(set2)}")
     if only_in_b:
         print(f"仅在数组 B 中存在的元素: {list(only_in_b)}")
-        print(f"数组A: {list(set1)}")
+        # print(f"数组A: {list(set1)}")
 
 
 def extract_cook_command_entity(text):
