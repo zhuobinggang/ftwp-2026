@@ -6,6 +6,7 @@ assert not common.GAME_WITH_NAVIGATOR
 assert GAME_INIT_FUNC == Game_handle_worldmap
 
 def run():
-    train_repeat(testing = False)
+    train_repeat(testing = True)
+    test_all_checkpoints(testing=True)
 
 run()

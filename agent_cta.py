@@ -411,7 +411,7 @@ def train_repeat(testing = False, MODEL_INIT_FUNC = Model_ucb1):
         model.prefix = f'roberta_navigator_{repeat_id}'
         if testing:
             model.prefix += '_testing'
-        max_score = 0
+        max_score = -1
         writer = get_writer()
         for i in range(epoch):
             train(model, split=TRAIN_SPLIT, log_name=f'{rp}', writer=writer)
