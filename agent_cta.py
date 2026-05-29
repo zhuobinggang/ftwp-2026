@@ -6,7 +6,6 @@ import pandas as pd
 from tqdm import tqdm
 from bert_utils import default_tokenizer, special_tokens_dict, EMPTY_RECIPE, EMPTY_INVENTORY
 from bert_utils import BertInput, command_indexs_tokenized, init_bert_ours, DEVICE, NextCommandResult
-logger = logging.getLogger('agent_navigator')
 import torch
 from torch.utils.data import DataLoader, RandomSampler, TensorDataset
 from torch import nn, optim
@@ -18,6 +17,7 @@ import random
 import os
 import common_new as common
 from common_new import logging, beutiful_print_command_and_probs, get_time_str, get_writer, GAME_WITH_NAVIGATOR
+logger = logging.getLogger('agent_navigator')
 from game import Game_with_navigator, Game_state_clean, Game_state, test_game, Game_handle_worldmap
 
 LEARNING_RATE = 1e-5
