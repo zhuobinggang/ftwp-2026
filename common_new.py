@@ -23,6 +23,7 @@ print('设置游戏路径为：', GAME_BASE_PATH)
 # vvvv 判断是否使用navigator，需要设置csv数据集路径，而GAME_WITH_NAVIGATOR也会导致checkpoint存储路径改变 vvvv
 parser = argparse.ArgumentParser()
 parser.add_argument('-nav', '--navigator', action='store_true', help='Whether to use the navigator')
+parser.add_argument('-test', '--test', action='store_true', help='Whether to run tests')
 args = parser.parse_args()
 if args.navigator:
     GAME_WITH_NAVIGATOR = True
