@@ -157,8 +157,9 @@ def batch_predict(bert, batch_bert_input):
     command_indexs = command_indexs_tokenized()[:command_length]
     command_logits = logits[:, command_indexs] # (batch_size, 2)
     # BUG: 2026.5.22 等等，这里如果直接用softmax的话，如果指令数量大于批次大小，就会出问题
-    # return command_logits.softmax(dim=1)[:, 1].tolist() # probabilities of positive class
-    return command_logits[:, 1].tolist() # logits of positive class 修正与2026.5.22
+    # BUG: 2026.6.1 改BUG出了BUG，这里的softmax是根据0和1的logits来计算百分比，而不是在这个batch中计算百分比，所以是正确的，不需要改了。
+    return command_logits.softmax(dim=1)[:, 1].tolist() # probabilities of positive class
+    # return command_logits[:, 1].tolist() # logits of positive class 修正与2026.5.22
 
 # NOTE: 2026.5.22 删除参数中的commands，因为可以直接从game_state中获取，减少出错的可能性
 def get_next_command_batch(bert, game_state: Game_state):
