@@ -21,12 +21,6 @@ logger = logging.getLogger('agent_navigator')
 from game import Game_with_navigator, Game_state_clean, Game_state, test_game, Game_handle_worldmap
 
 LEARNING_RATE = 1e-5
-# CSV_SUFFIX = '_with_navigator' if GAME_WITH_NAVIGATOR else '' # NOTE: 2026.5.21 navigator only模型使用专门的csv后缀，以免和之前的模型混淆
-CSV_SUFFIX = '' # NOTE: 2026.5.29 以后以文件夹区分是否使用navigator，csv文件不再区分后缀
-TEMP_SAVE_DIR = "./checkpoints/ftwp_our_navigator_only" if GAME_WITH_NAVIGATOR else "./checkpoints/cta_vanilla"
-print('设置模型存储路径为：', TEMP_SAVE_DIR)
-assert os.path.exists(TEMP_SAVE_DIR), f"Save dir {TEMP_SAVE_DIR} does not exist!"
-
 TRAIN_SPLIT = 'train'
 # PART_VALID_SPLIT = 'partial_valid'
 VALID_SPLIT = 'valid'
@@ -34,17 +28,21 @@ TEST_SPLIT = 'test'
 MAX_TEST_STEP = 100
 MAX_TOKEN_SIZE = 342
 NEGATIVE_SAMPLE_SIZE = 5
-
 BATCH_SIZE = 4 if common.LOCAL else 8
 
 DANGER_FILTER_ON = False # NOTE: 对于navigator only模型，danger filter不需要打开
 
+# vvvv 根据是否使用navigator来设置模型存储路径，以及游戏初始化函数 vvvv
+# CSV_SUFFIX = '_with_navigator' if GAME_WITH_NAVIGATOR else '' # NOTE: 2026.5.21 navigator only模型使用专门的csv后缀，以免和之前的模型混淆
+CSV_SUFFIX = '' # NOTE: 2026.5.29 以后以文件夹区分是否使用navigator，csv文件不再区分后缀
+TEMP_SAVE_DIR = "./checkpoints/ftwp_our_navigator_only" if GAME_WITH_NAVIGATOR else "./checkpoints/cta_vanilla"
+print('设置模型存储路径为：', TEMP_SAVE_DIR)
+assert os.path.exists(TEMP_SAVE_DIR), f"Save dir {TEMP_SAVE_DIR} does not exist!"
 GAME_INIT_FUNC = Game_with_navigator if GAME_WITH_NAVIGATOR else Game_handle_worldmap
 print(f'游戏初始化函数设置为：{GAME_INIT_FUNC}')
 # from game_cmd_gen import Game_command_generate
 #print('agent_navigator.py: Set GAME_INIT_FUNC to Game_command_generate for testing!')
-
-BEST_MODELS = [-1, -1, -1]
+# ^^^^
 
 def bert_tokenize_prompt_cut_theirs(game_state: Game_state_clean, action: str):
     toker = default_tokenizer()
@@ -394,7 +392,7 @@ def valid_all(model: Model_ucb1, split = 'fake_test_10', game_init_func = GAME_I
 
 # NOTE: See doc/202605/recover_agent_navigator.md for detailed report
 def train_repeat(testing = False, MODEL_INIT_FUNC = Model_ucb1):
-    global BEST_MODELS, MAX_TEST_STEP, TRAIN_SPLIT, VALID_SPLIT, TEST_SPLIT
+    global MAX_TEST_STEP, TRAIN_SPLIT, VALID_SPLIT, TEST_SPLIT
     if testing:
         MAX_TEST_STEP = 20
         TRAIN_SPLIT = 'fake_train_100'
@@ -422,8 +420,7 @@ def train_repeat(testing = False, MODEL_INIT_FUNC = Model_ucb1):
             # get_writer().add_scalar(f'Score/valid_rp{rp}', score, i)
             if score > max_score:
                 max_score = score
-                BEST_MODELS[rp] = i
-                logger.error(f'Best model ({rp}) at epoch {i}, score {max_score}, average step {avg_step}. BEST_MODELS: {BEST_MODELS}')
+                logger.error(f'Best model at epoch {i}, score {max_score}, average step {avg_step}.')
                 # get_writer().add_scalar(f'Score/best_valid_rp{rp}', score, i)
                 # 补上测试分数
                 # score, avg_step = valid_all(model, split=TEST_SPLIT, game_init_func=GAME_INIT_FUNC)

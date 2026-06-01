@@ -21,6 +21,11 @@ VALID_PATH = f'{BASE_PATH}/valid'
 
 GAME_INIT_FUNC = Game_with_navigator if GAME_WITH_NAVIGATOR else Game_handle_worldmap
 OUTPUT_CSV_SUFFIX = '' # 2026.5.29 以后以文件夹区分是否使用navigator，csv文件不再区分后缀
+if GAME_WITH_NAVIGATOR:
+    CSV_PATH = f"good_dataset/standard"
+else:
+    CSV_PATH = f"good_dataset/without_navigator"
+print(f'设置数据集默认读取路径CSV_PATH为{CSV_PATH}')
 
 # from game_cmd_gen import Game_command_generate
 # GAME_INIT_FUNC = Game_command_generate
@@ -137,7 +142,7 @@ def extract_walkthrough_dataset_with_navigator(split = 'fake_test', test_game_pa
     return pd.DataFrame(gamesteps)
 
 
-def create_csv_dataset(outputpath = common.CSV_PATH, suffix = OUTPUT_CSV_SUFFIX, testing = False):
+def create_csv_dataset(outputpath = CSV_PATH, suffix = OUTPUT_CSV_SUFFIX, testing = False):
     dataset_names = ['fake_train_100','fake_valid_10', 'fake_test_10'] if testing else ['train', 'valid', 'test']
     for split in dataset_names:
         df = extract_walkthrough_dataset_with_navigator(split)
@@ -145,7 +150,7 @@ def create_csv_dataset(outputpath = common.CSV_PATH, suffix = OUTPUT_CSV_SUFFIX,
         df.to_csv(csv_save_path, index=False)
         
 
-def read_csv_dataset(inputpath = common.CSV_PATH, split = 'fake_test', suffix = OUTPUT_CSV_SUFFIX):
+def read_csv_dataset(inputpath = CSV_PATH, split = 'fake_test', suffix = OUTPUT_CSV_SUFFIX):
     path = os.path.join(inputpath,
                         f'walkthrough_{split}{suffix}.csv')
     print(f'读取数据集： {path}')

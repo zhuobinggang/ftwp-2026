@@ -1,3 +1,4 @@
-from agent_navigator import *
+# from agent_cta import *
 
-test_all_checkpoints()
+# test_all_checkpoints()
+from common_new import *

@@ -2,35 +2,35 @@ import re
 import logging
 import os
 from pathlib import Path
+import argparse
 
+# vvvv 检查处于HPC环境还是本地环境，并设置games和checkpoint存储路径 vvvv
 LOCAL = False
 dir_path = Path("/work/zb023")
 if dir_path.is_dir():
     LOCAL = False
     print("处于HPC环境")
     dataset_base = '/work/zb023/datasets'
-    CHECKPOINT_DIR = '/work/zb023/checkpoints/ftwp/navigator_only'
 else:
     LOCAL = True
     print("处于本地测试环境")
     dataset_base = '/home/zhuobinggang/research/datasets'
-    CHECKPOINT_DIR = '/home/zhuobinggang/checkpoints/ftwp/navigator_only'
-
 # dataset_base = os.environ.get('DATASET_BASE')
 GAME_BASE_PATH = f"{dataset_base}/ftwp/games"
 print('设置游戏路径为：', GAME_BASE_PATH)
-# CSV_PATH = f"good_dataset/standard" # filter commands
-# CSV_PATH = f"good_dataset/cmd_gen"
-GAME_WITH_NAVIGATOR = False
-COMMAND_FILTER = True
-if GAME_WITH_NAVIGATOR:
-    if COMMAND_FILTER:
-        CSV_PATH = f"good_dataset/standard"
-    else:
-        CSV_PATH = f"good_dataset/cmd_gen"
+# ^^^^
+
+# vvvv 判断是否使用navigator，需要设置csv数据集路径，而GAME_WITH_NAVIGATOR也会导致checkpoint存储路径改变 vvvv
+parser = argparse.ArgumentParser()
+parser.add_argument('-nav', '--navigator', action='store_true', help='Whether to use the navigator')
+args = parser.parse_args()
+if args.navigator:
+    GAME_WITH_NAVIGATOR = True
+    print('Testing with navigator...')
 else:
-    CSV_PATH = f"good_dataset/without_navigator"
-print(f'设置数据集路径CSV_PATH为{CSV_PATH}')
+    GAME_WITH_NAVIGATOR = False
+    print('Testing without navigator...')
+# ^^^^
 
 def get_time_str():
     from datetime import datetime
