@@ -36,8 +36,16 @@ DANGER_FILTER_ON = False # NOTE: 对于navigator only模型，danger filter不�
 # vvvv 根据是否使用navigator来设置模型存储路径，以及游戏初始化函数 vvvv
 # CSV_SUFFIX = '_with_navigator' if GAME_WITH_NAVIGATOR else '' # NOTE: 2026.5.21 navigator only模型使用专门的csv后缀，以免和之前的模型混淆
 CSV_SUFFIX = '' # NOTE: 2026.5.29 以后以文件夹区分是否使用navigator，csv文件不再区分后缀
-TEMP_SAVE_DIR = "./checkpoints/ftwp_our_navigator_only" if GAME_WITH_NAVIGATOR else "./checkpoints/cta_vanilla"
+TEMP_SAVE_DIR = None
+if GAME_WITH_NAVIGATOR:
+    if GAME_CMD_GENERATE:
+        TEMP_SAVE_DIR = "./checkpoints/cta_nav_cmdgen"
+    else:
+        TEMP_SAVE_DIR = "./checkpoints/cta_nav"
+else:
+    TEMP_SAVE_DIR = "./checkpoints/cta_vanilla"
 print('设置模型存储路径为：', TEMP_SAVE_DIR)
+logger.warning(f'模型存储路径设置为：{TEMP_SAVE_DIR}')
 assert os.path.exists(TEMP_SAVE_DIR), f"Save dir {TEMP_SAVE_DIR} does not exist!"
 GAME_INIT_FUNC = None
 if GAME_WITH_NAVIGATOR:
