@@ -22,8 +22,9 @@ print('设置游戏路径为：', GAME_BASE_PATH)
 
 # vvvv 判断是否使用navigator，需要设置csv数据集路径，而GAME_WITH_NAVIGATOR也会导致checkpoint存储路径改变 vvvv
 parser = argparse.ArgumentParser()
-parser.add_argument('-nav', '--navigator', action='store_true', help='Whether to use the navigator')
 parser.add_argument('-test', '--test', action='store_true', help='Whether to run tests')
+parser.add_argument('-nav', '--navigator', action='store_true', help='Whether to use the navigator')
+parser.add_argument('-cgen', '--cmdgen', action='store_true', help='Whether to use command generate game and dataset')
 args = parser.parse_args()
 if args.navigator:
     GAME_WITH_NAVIGATOR = True
@@ -31,6 +32,12 @@ if args.navigator:
 else:
     GAME_WITH_NAVIGATOR = False
     print('Testing without navigator...')
+if args.cmdgen:
+    GAME_CMD_GENERATE = True
+    print('Testing with command generation game and dataset...')
+else:
+    GAME_CMD_GENERATE = False
+    print('Testing without command generation game and dataset...')
 # ^^^^
 
 def get_time_str():

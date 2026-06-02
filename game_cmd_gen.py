@@ -1,5 +1,5 @@
 # 旧代码，完成后需要被禁用，还原指令生成
-from game import Game_with_navigator
+from game import Game_with_navigator, Game_handle_worldmap
 from common_new import logging
 import common_new as common
 
@@ -11,7 +11,7 @@ CUT_COMMANDS = ['slice', 'chop', 'dice']
 def game_state_from_game(game):
     return game
 
-class Game_command_generate(Game_with_navigator):
+class Game_command_generate_nav(Game_with_navigator):
     def get_admissible_commands(self):
         cook_commands = self.cook_command_generate()
         knife_commands = self.knife_command_generate()
@@ -188,5 +188,21 @@ class Game_command_generate(Game_with_navigator):
         return ['examine cookbook']
 
 
+class Game_command_generate_vanilla(Game_command_generate_nav):
+    def get_admissible_commands(self):
+        cook_commands = self.cook_command_generate()
+        knife_commands = self.knife_command_generate()
+        drop_commands = self.drop_command_generate()
+        eat_commands = self.eat_command_generate()
+        take_commands = self.take_command_generate()
+        open_commands = self.open_command_generate()
+        prepare_meal_commands = self.prepare_meal_command_generate()
+        go_commands = self.go_command_generate()
+        examine_cookbook = self.examine_cookbook_command_generate()
+        all_commands = cook_commands + knife_commands + take_commands + drop_commands + \
+            open_commands + go_commands + prepare_meal_commands + eat_commands + examine_cookbook
+        # all_commands = all_commands + self.navigate_command_generate() # NOTE: vanilla模型不需要navigate命令
+        return all_commands  
+
 def default_game():
-    return Game_command_generate(f'{common.GAME_BASE_PATH}/valid/tw-cooking-recipe1+cook+cut+drop+go6-M2qEFeOXcol3H1ql.ulx')
+    return Game_command_generate_nav(f'{common.GAME_BASE_PATH}/valid/tw-cooking-recipe1+cook+cut+drop+go6-M2qEFeOXcol3H1ql.ulx')

@@ -16,9 +16,10 @@ from pydash.arrays import chunk
 import random
 import os
 import common_new as common
-from common_new import logging, beutiful_print_command_and_probs, get_time_str, get_writer, GAME_WITH_NAVIGATOR
+from common_new import logging, beutiful_print_command_and_probs, get_time_str, get_writer, GAME_WITH_NAVIGATOR, GAME_CMD_GENERATE
 logger = logging.getLogger('agent_navigator')
 from game import Game_with_navigator, Game_state_clean, Game_state, test_game, Game_handle_worldmap
+from game_cmd_gen import Game_command_generate_nav, Game_command_generate_vanilla
 
 LEARNING_RATE = 1e-5
 TRAIN_SPLIT = 'train'
@@ -38,7 +39,17 @@ CSV_SUFFIX = '' # NOTE: 2026.5.29 以后以文件夹区分是否使用navigator�
 TEMP_SAVE_DIR = "./checkpoints/ftwp_our_navigator_only" if GAME_WITH_NAVIGATOR else "./checkpoints/cta_vanilla"
 print('设置模型存储路径为：', TEMP_SAVE_DIR)
 assert os.path.exists(TEMP_SAVE_DIR), f"Save dir {TEMP_SAVE_DIR} does not exist!"
-GAME_INIT_FUNC = Game_with_navigator if GAME_WITH_NAVIGATOR else Game_handle_worldmap
+GAME_INIT_FUNC = None
+if GAME_WITH_NAVIGATOR:
+    if GAME_CMD_GENERATE:
+        GAME_INIT_FUNC = Game_command_generate_nav
+    else:
+        GAME_INIT_FUNC = Game_with_navigator
+else:
+    if GAME_CMD_GENERATE:
+        GAME_INIT_FUNC = Game_command_generate_vanilla
+    else:
+        GAME_INIT_FUNC = Game_handle_worldmap
 print(f'游戏初始化函数设置为：{GAME_INIT_FUNC}')
 # from game_cmd_gen import Game_command_generate
 #print('agent_navigator.py: Set GAME_INIT_FUNC to Game_command_generate for testing!')

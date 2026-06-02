@@ -22,9 +22,15 @@ VALID_PATH = f'{BASE_PATH}/valid'
 GAME_INIT_FUNC = Game_with_navigator if GAME_WITH_NAVIGATOR else Game_handle_worldmap
 OUTPUT_CSV_SUFFIX = '' # 2026.5.29 以后以文件夹区分是否使用navigator，csv文件不再区分后缀
 if GAME_WITH_NAVIGATOR:
-    CSV_PATH = f"good_dataset/standard"
+    if common.GAME_CMD_GENERATE:
+        CSV_PATH = f"good_dataset/cmd_gen"
+    else:
+        CSV_PATH = f"good_dataset/standard"
 else:
-    CSV_PATH = f"good_dataset/without_navigator"
+    if common.GAME_CMD_GENERATE:
+        CSV_PATH = f"good_dataset/without_navigator_cmd_gen"
+    else:
+        CSV_PATH = f"good_dataset/without_navigator"
 print(f'设置数据集默认读取路径CSV_PATH为{CSV_PATH}')
 
 # from game_cmd_gen import Game_command_generate
@@ -154,6 +160,7 @@ def read_csv_dataset(inputpath = CSV_PATH, split = 'fake_test', suffix = OUTPUT_
     path = os.path.join(inputpath,
                         f'walkthrough_{split}{suffix}.csv')
     print(f'读取数据集： {path}')
+    logger.warning(f'读取数据集： {path}')
     df= pd.read_csv(path)
     df['action_obs_pairs'] = df['action_obs_pairs'].apply(eval)
     df['admissible_commands'] = df['admissible_commands'].apply(eval)
