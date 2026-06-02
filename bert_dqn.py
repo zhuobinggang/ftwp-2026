@@ -1,0 +1,65 @@
+from q_net import ChoiceTextQnet
+from bert_state_action_encoder import State_Action_Encoder
+import random
+from pydash.arrays import chunk
+import torch
+from bert_utils import DEVICE
+
+BATCH_SIZE = 16
+
+class BertDQNAgent:
+    def __init__(self):
+        self.encoder = State_Action_Encoder()
+        self.q_net = ChoiceTextQnet()
+        self.q_net.to(DEVICE)
+
+    def q_values(self, game_states, admissible_commands):
+        assert len(game_states) == len(admissible_commands), f"game_states和admissible_commands的长度应该相等！但得到的长度分别是{len(game_states)}和{len(admissible_commands)}"
+        q_values = []
+        for blob in chunk(list(zip(game_states, admissible_commands)), BATCH_SIZE):
+            batch_game_states = [x[0] for x in blob]
+            batch_commands = [x[1] for x in blob]
+            # Encode the game state with each admissible command
+            batch_cls_embeddings = self.encoder.encode(batch_game_states, batch_commands)
+            assert batch_cls_embeddings.shape[0] == len(batch_commands) and batch_cls_embeddings.shape[1] == 768, f"编码得到的特征维度不对！应该是(batch_size, 768)，但得到的是{batch_cls_embeddings.shape}"
+            # Get Q-values for each command
+            batch_q_values = self.q_net.forward(batch_cls_embeddings)
+            assert batch_q_values.shape[0] == len(batch_commands) and batch_q_values.shape[1] == 1, f"Q网络输出的维度不对！应该是(batch_size, 1)，但得到的是{batch_q_values.shape}"
+            q_values.append(batch_q_values)
+        q_values = torch.cat(q_values, dim=0) # (num_commands, 1)
+        assert q_values.shape[0] == len(admissible_commands) and q_values.shape[1] == 1, f"最终得到的Q值维度不对！应该是(num_commands, 1)，但得到的是{q_values.shape}"
+        return q_values.squeeze(1) # (num_commands,)
+
+    def select_action(self, game_state, admissible_commands, epsilon=0.1, need_more=False):
+        if random.random() < epsilon:
+            return random.choice(admissible_commands)
+        game_states = [game_state] * len(admissible_commands)
+        q_values = self.q_values(game_states, admissible_commands) # (num_commands,)
+        best_index = torch.argmax(q_values).item()
+        if need_more:
+            return admissible_commands[best_index], {'q_values': q_values.cpu().numpy(), 'best_index': best_index}
+        return admissible_commands[best_index]
+
+def test_bert_dqn_agent():
+    from game import default_game, game_state_from_game
+    agent = BertDQNAgent()
+    game = default_game()
+    _ = game.reset()
+    walkthrough = game.clean_walkthrough()
+    states = []
+    actions = []
+    rewards = []
+    last_reward = 0
+    for cmd in walkthrough:
+        print('命令：', cmd)
+        if cmd == 'prepare meal':
+            break
+        states.append(game_state_from_game(game, need_worldmap=False)) # 注意这里如果bert输入不包含worldmap相关信息，那么编码时也不需要包含worldmap相关信息
+        actions.append(cmd)
+        _ = game.act(cmd)
+        rewards.append(game.accumulated_score() - last_reward)
+        last_reward = game.accumulated_score()
+    state = states[-2]
+    admissible_commands = state.get_admissible_commands()
+    best_command, info = agent.select_action(state, admissible_commands, epsilon=0.0, need_more=True)
+    return info

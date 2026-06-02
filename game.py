@@ -66,6 +66,8 @@ class Game:
         return common.filter_commands_default(self.info['admissible_commands'])
     def available_commands_text(self):
         return common.actions_to_list_number(self.get_admissible_commands())
+    def accumulated_score(self):
+        return self.info['score']
 
 
 class Fake_model:
@@ -432,6 +434,7 @@ class Game_state_clean(Game_state):
         self.inventory_good = ''
         self.description_good = ''
         self.available_commands_good = []
+        self.accumulated_score_good = 0
     def recipe_clean(self):
         return self.recipe_good
     def inventory_clean(self):
@@ -442,6 +445,8 @@ class Game_state_clean(Game_state):
         return self.available_commands_good
     def get_admissible_commands(self):
         return self.available_commands_good
+    def accumulated_score(self):
+        return self.accumulated_score_good
     
 class Game_state_clean_with_worldmap(Game_state_clean):
     def __init__(self):
@@ -449,16 +454,18 @@ class Game_state_clean_with_worldmap(Game_state_clean):
         self.worldMap = {}
         self.itemMap = {}
 
-def game_state_from_game(game: Game_handle_worldmap):
+def game_state_from_game(game: Game_handle_worldmap, need_worldmap = True, need_action_obs_pairs = True):
     game_state = Game_state_clean_with_worldmap()
     game_state.recipe_good = game.recipe_clean()
     game_state.inventory_good = game.inventory_clean()
     game_state.description_good = game.description_clean()
     game_state.available_commands_good = game.get_admissible_commands().copy()
-    game_state.worldMap = copy.deepcopy(game.worldMap)
-    game_state.itemMap = copy.deepcopy(game.itemMap)
+    if need_worldmap:
+        game_state.worldMap = copy.deepcopy(game.worldMap)
+        game_state.itemMap = copy.deepcopy(game.itemMap)
     game_state.room = game.room
-    game_state.action_obs_pairs = game.action_obs_pairs.copy()
+    if need_action_obs_pairs:
+        game_state.action_obs_pairs = game.action_obs_pairs.copy()
     return game_state
 
 def test_game(game: Game_handle_worldmap, model = Fake_model(), max_step = 100, need_print = False):
