@@ -103,27 +103,52 @@ def train_on_trajectory(trajectory: Trajectory, agent: BertDQNAgent):
     
 
 def run():
-    buffer = TrajectoryReplayBuffer(capacity=500)
-    # 1. 【热身阶段】让智能体用纯随机（epsilon=1.0）或者初期的网络先乱玩 50 局
-    print("正在收集初始经验...")
-    while len(buffer) < 50:
-        game = default_game()
-        trajectory = play_one_episode(game, None, epsilon=1.0) # 玩一局游戏
-        buffer.push(trajectory) # 管它分高分低，全塞进去
-    # 2. 【正式训练阶段】
+    success_buffer = TrajectoryReplayBuffer(capacity=200) # 成功池可以小一点，装精髓
+    failure_buffer = TrajectoryReplayBuffer(capacity=500) # 失败池大一点，装教训
     agent = BertDQNAgent() # 初始化你的BertDQN智能体
     print("初始化智能体并开始正式训练...")
-    for episode in tqdm(range(1000), desc="训练进度"):
+    for episode in tqdm(range(2000), desc="训练进度"):
         # 边玩边存
         game = default_game()
         trajectory = play_one_episode(game, agent, epsilon=0.1) # 带着探索去玩一局
-        buffer.push(trajectory)
-        print(f'{episode+1}: 总奖励: {sum(trajectory.rewards)}, 轨迹长度: {len(trajectory.states)}')
-        
-        # 每玩完一局，从 Buffer 里随机抽一条“历史轨迹”出来训练网络
-        sampled_trajectory = buffer.sample()
-        
-        # 拿着这条历史轨迹，喂给你的 DRQN 计算 Loss 并更新参数
-        train_on_trajectory(sampled_trajectory, agent)
+        total_reward = sum(trajectory.rewards)
+        print(f'第{episode+1}局结束，总奖励: {total_reward}, 轨迹长度: {len(trajectory.states)}')
+        if total_reward > 0:
+            success_buffer.push(trajectory)
+            # print(f'{episode+1}: 总奖励: {sum(trajectory.rewards)}, 轨迹长度: {len(trajectory.states)}')
+        else:
+            failure_buffer.push(trajectory)
+        if len(success_buffer) < 5:
+            continue
+        else:
+            train_on_trajectory(trajectory, agent) # 也用当前轨迹训练一下，毕竟它是最新的经验
+            # 每玩完一局，从 成功池 里随机抽一条“历史轨迹”出来训练网络
+            success_trajectory = success_buffer.sample()
+            train_on_trajectory(success_trajectory, agent)
     agent.q_net.save_checkpoint() # 训练结束后保存模型
     return agent
+
+
+def test_trained_agent():
+    agent = BertDQNAgent(q_net_path='checkpoints/q_net_20260603_153547_957804.pth') # 替换成你实际的模型路径
+    game = default_game()
+    _ = game.reset()
+    walkthrough = game.clean_walkthrough()
+    states = []
+    actions = []
+    rewards = []
+    last_reward = 0
+    for cmd in walkthrough:
+        print('命令：', cmd)
+        game_state = game_state_from_game(game, need_worldmap=False, need_action_obs_pairs=False) # 注意这里如果bert输入不包含worldmap相关信息，那么编码时也不需要包含worldmap相关信息
+        states.append(game_state) # 注意这里如果bert输入不包含worldmap相关信息，那么编码时也不需要包含worldmap相关信息
+        actions.append(cmd)
+        _ = game.act(cmd)
+        rewards.append(game.accumulated_score() - last_reward)
+        last_reward = game.accumulated_score()
+    state = states[-2]
+    admissible_commands = state.get_admissible_commands()
+    best_command, info = agent.select_action(state, admissible_commands, need_more=True)
+    print(f"智能体选择的命令: {best_command}")
+    print(f"Q值列表: {info['q_values']}")
+    print(f"最佳命令索引: {info['best_index']}")

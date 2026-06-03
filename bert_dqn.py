@@ -8,10 +8,11 @@ from bert_utils import DEVICE
 BATCH_SIZE = 16
 
 class BertDQNAgent:
-    def __init__(self, q_net = None):
+    def __init__(self, q_net_path = ''):
         self.encoder = State_Action_Encoder()
-        print("使用外部传入的Q网络") if q_net is not None else print("初始化Q网络")
-        self.q_net = q_net if q_net is not None else ChoiceTextQnet()
+        self.q_net = ChoiceTextQnet()
+        if q_net_path:
+            self.q_net.load_checkpoint(q_net_path)
         self.q_net.to(DEVICE)
         self.target_q_net = ChoiceTextQnet()
         self.target_q_net.to(DEVICE)

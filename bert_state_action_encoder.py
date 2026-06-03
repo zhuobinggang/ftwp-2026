@@ -1,4 +1,4 @@
-from bert_utils import init_bert_ours, default_tokenizer, DEVICE
+from bert_utils import init_bert_ours, default_tokenizer, DEVICE, ROBERTA_BASE_UNCASED_MODEL_ID
 from game import default_game
 from game import Game_with_navigator, Game_state_clean, game_state_from_game
 from bert_utils import default_tokenizer, special_tokens_dict, EMPTY_RECIPE, EMPTY_INVENTORY
@@ -6,6 +6,11 @@ import torch
 
 MAX_TOKEN_SIZE = 342
 
+
+def init_bert():
+    from transformers import RobertaModel
+    # return BertForMaskedLM.from_pretrained(BERT_BASE_UNCASED_MODEL_ID)
+    return RobertaModel.from_pretrained(ROBERTA_BASE_UNCASED_MODEL_ID)
 
 def actions_history(action_obs_pairs,seperator=', '): # 注意这里有个空格
     return seperator.join([action for action, obs in action_obs_pairs])
@@ -109,7 +114,7 @@ def test_empty_cookbook():
 class State_Action_Encoder:
     def __init__(self):
         self.toker = default_tokenizer()
-        self.bert = init_bert_ours()
+        self.bert = init_bert()
         self.bert.to(DEVICE)
         self.bert.eval() # 注意这里bert只用来编码，不进行训练，所以设置为eval模式
         for param in self.bert.parameters():
