@@ -36,9 +36,11 @@ class ChoiceTextQnet(nn.Module):
         q_values = self.mlp(cls_embeddings)
         return q_values # batch, 1
     
-    def save_checkpoint(self, base_path = 'checkpoints/q_net'):
+    def save_checkpoint(self, base_path = 'checkpoints/q_net', name = None):
         # path = f'{base_path}/{self.prefix}_epoch_{epoch}.pth'
-        path = f'{base_path}/q_net_{get_time_str()}.pth'
+        if name is None:
+            name = get_time_str() + '_q_net.pth'
+        path = f'{base_path}/{name}'
         torch.save({
             'state': self.state_dict(),
         }, path)

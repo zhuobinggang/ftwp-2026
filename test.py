@@ -9,6 +9,8 @@ from bert_dqn import BertDQNAgent
 from recordclass import recordclass
 import torch
 from tqdm import tqdm
+from common_new import logging
+logger = logging.getLogger('test')
 
 Trajectory = recordclass('Trajectory', 'states actions rewards')
 
@@ -101,18 +103,21 @@ def train_on_trajectory(trajectory: Trajectory, agent: BertDQNAgent):
         for target_param, q_param in zip(agent.target_q_net.parameters(), agent.q_net.parameters()):
             target_param.copy_(tau * q_param + (1.0 - tau) * target_param)
     
+CHECKPOINT_NAME = 'one_vs_one.pth'
 
-def run():
+def train(episodes=2000):
     success_buffer = TrajectoryReplayBuffer(capacity=50) # 成功池可以小一点，装精髓
-    failure_buffer = TrajectoryReplayBuffer(capacity=500) # 失败池大一点，装教训
+    failure_buffer = TrajectoryReplayBuffer(capacity=100) # 失败池大一点，装教训
     agent = BertDQNAgent() # 初始化你的BertDQN智能体
     print("初始化智能体并开始正式训练...")
-    for episode in range(2000):
+    logger.warning("初始化智能体并开始正式训练...")
+    for episode in range(episodes):
         # 边玩边存
         game = default_game()
         trajectory = play_one_episode(game, agent, epsilon=0.1) # 带着探索去玩一局
         total_reward = sum(trajectory.rewards)
         print(f'{episode+1}: 总奖励: {total_reward}, 轨迹长度: {len(trajectory.states)}')
+        logger.warning(f'{episode+1}: 总奖励: {total_reward}, 轨迹长度: {len(trajectory.states)}')
         if total_reward > 0:
             success_buffer.push(trajectory)
             # print(f'{episode+1}: 总奖励: {sum(trajectory.rewards)}, 轨迹长度: {len(trajectory.states)}')
@@ -121,16 +126,18 @@ def run():
         if len(success_buffer) < 5:
             continue
         else:
-            train_on_trajectory(trajectory, agent) # 也用当前轨迹训练一下，毕竟它是最新的经验
+            # train_on_trajectory(trajectory, agent) # 也用当前轨迹训练一下，毕竟它是最新的经验
             # 每玩完一局，从 成功池 里随机抽一条“历史轨迹”出来训练网络
             success_trajectory = success_buffer.sample()
             train_on_trajectory(success_trajectory, agent)
-    agent.q_net.save_checkpoint() # 训练结束后保存模型
+            fail_trajectory = failure_buffer.sample()
+            train_on_trajectory(fail_trajectory, agent)
+    agent.q_net.save_checkpoint(name = CHECKPOINT_NAME) # 训练结束后保存模型
     return agent
 
 
-def test_trained_agent():
-    agent = BertDQNAgent(q_net_path='checkpoints/q_net/q_net_20260603_153547_957804.pth') # 替换成你实际的模型路径
+def test_trained_agent_by_path(q_net_path):
+    agent = BertDQNAgent(q_net_path=q_net_path)
     game = default_game()
     _ = game.reset()
     walkthrough = game.clean_walkthrough()
@@ -151,3 +158,34 @@ def test_trained_agent():
         _ = game.act(cmd)
         print('---')
         # print(f"智能体选择的命令: {admissible_commands[max_index]}，Q值: {q_values[max_index]:.4f}")
+
+
+def test_trained_agent(q_net_path = None):
+    if q_net_path is None:
+        q_net_path = f'checkpoints/q_net/{CHECKPOINT_NAME}'
+    agent = BertDQNAgent(q_net_path=q_net_path)
+    game = default_game()
+    _ = game.reset()
+    for i in range(100):
+        if game.done:
+            break
+        game_state = game_state_from_game(game, need_worldmap=False, need_action_obs_pairs=False) # 注意这里如果bert输入不包含worldmap相关信息，那么编码时也不需要包含worldmap相关信息
+        admissible_commands = game_state.get_admissible_commands()
+        q_values = agent.q_values([game_state] * len(admissible_commands), admissible_commands, target_q=True)
+        max_index = torch.argmax(q_values).item()
+        selected_command = admissible_commands[max_index]
+        q_values = q_values.tolist()
+        for cmd_temp, q in zip(admissible_commands, q_values):
+            important_mark = ''
+            choosed_mark = '' if cmd_temp != selected_command else '>'
+            logger.warning(f"{important_mark}{choosed_mark}{cmd_temp}: {q:.4f}")
+        _ = game.act(selected_command)
+        logger.warning('---')
+        # print(f"智能体选择的命令: {admissible_commands[max_index]}，Q值: {q_values[max_index]:.4f}")
+    logger.warning(f"游戏结束，最终得分: {game.accumulated_score()}")
+    logger.warning(f'{game.action_obs_pairs}')
+
+
+def run():
+    train(5000)
+    test_trained_agent()
