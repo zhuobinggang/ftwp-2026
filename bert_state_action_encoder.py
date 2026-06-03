@@ -1,16 +1,10 @@
-from bert_utils import init_bert_ours, default_tokenizer, DEVICE, ROBERTA_BASE_UNCASED_MODEL_ID
+from bert_utils import init_bert_ours, default_tokenizer, DEVICE
 from game import default_game
 from game import Game_with_navigator, Game_state_clean, game_state_from_game
 from bert_utils import default_tokenizer, special_tokens_dict, EMPTY_RECIPE, EMPTY_INVENTORY
 import torch
 
 MAX_TOKEN_SIZE = 342
-
-
-def init_bert():
-    from transformers import RobertaModel
-    # return BertForMaskedLM.from_pretrained(BERT_BASE_UNCASED_MODEL_ID)
-    return RobertaModel.from_pretrained(ROBERTA_BASE_UNCASED_MODEL_ID)
 
 def actions_history(action_obs_pairs,seperator=', '): # 注意这里有个空格
     return seperator.join([action for action, obs in action_obs_pairs])
@@ -114,7 +108,7 @@ def test_empty_cookbook():
 class State_Action_Encoder:
     def __init__(self):
         self.toker = default_tokenizer()
-        self.bert = init_bert()
+        self.bert = init_bert_ours()
         self.bert.to(DEVICE)
         self.bert.eval() # 注意这里bert只用来编码，不进行训练，所以设置为eval模式
         for param in self.bert.parameters():
@@ -155,3 +149,15 @@ def test_state_action_encoder():
     states = states[:-1] # 最后一个状态是执行prepare meal之后的状态，不用来编码
     logits = encoder.encode(states, actions)
     print('编码得到的logits shape:', logits.shape)
+
+
+def test_load_same_bert():
+    bert1 = init_bert_ours()
+    bert2 = init_bert_ours()
+    toker = default_tokenizer()
+    text = "Hello, world!"
+    tokens1 = toker.encode(text, add_special_tokens=False)
+    tokens2 = toker.encode(text, add_special_tokens=False)
+    hidden_states1 = bert1(input_ids=torch.tensor([tokens1]), output_hidden_states=True).hidden_states[-1] # 这里不需要放到GPU上，因为我们只是想测试两份bert的输出是否一样，不需要计算梯度
+    hidden_states2 = bert2(input_ids=torch.tensor([tokens2]), output_hidden_states=True).hidden_states[-1]
+    assert torch.allclose(hidden_states1, hidden_states2), "两份bert的输出不一样！"

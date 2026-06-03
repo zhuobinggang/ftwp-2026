@@ -107,12 +107,12 @@ def run():
     failure_buffer = TrajectoryReplayBuffer(capacity=500) # 失败池大一点，装教训
     agent = BertDQNAgent() # 初始化你的BertDQN智能体
     print("初始化智能体并开始正式训练...")
-    for episode in tqdm(range(2000), desc="训练进度"):
+    for episode in range(2000):
         # 边玩边存
         game = default_game()
         trajectory = play_one_episode(game, agent, epsilon=0.1) # 带着探索去玩一局
         total_reward = sum(trajectory.rewards)
-        print(f'第{episode+1}局结束，总奖励: {total_reward}, 轨迹长度: {len(trajectory.states)}')
+        print(f'{episode+1}: 总奖励: {total_reward}, 轨迹长度: {len(trajectory.states)}')
         if total_reward > 0:
             success_buffer.push(trajectory)
             # print(f'{episode+1}: 总奖励: {sum(trajectory.rewards)}, 轨迹长度: {len(trajectory.states)}')
