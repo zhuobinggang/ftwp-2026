@@ -37,7 +37,7 @@ class TrajectoryReplayBuffer:
         return len(self.buffer)
     
 
-MAX_STEPS = 100
+MAX_STEPS = 50 # 设置为50来加快测试
 
 def play_one_episode(game: Game_with_navigator, agent: BertDQNAgent, epsilon=1.0):
     states = []
