@@ -103,7 +103,7 @@ def train_on_trajectory(trajectory: Trajectory, agent: BertDQNAgent):
     
 
 def run():
-    success_buffer = TrajectoryReplayBuffer(capacity=200) # 成功池可以小一点，装精髓
+    success_buffer = TrajectoryReplayBuffer(capacity=50) # 成功池可以小一点，装精髓
     failure_buffer = TrajectoryReplayBuffer(capacity=500) # 失败池大一点，装教训
     agent = BertDQNAgent() # 初始化你的BertDQN智能体
     print("初始化智能体并开始正式训练...")
@@ -130,25 +130,24 @@ def run():
 
 
 def test_trained_agent():
-    agent = BertDQNAgent(q_net_path='checkpoints/q_net_20260603_153547_957804.pth') # 替换成你实际的模型路径
+    agent = BertDQNAgent(q_net_path='checkpoints/q_net/q_net_20260603_153547_957804.pth') # 替换成你实际的模型路径
     game = default_game()
     _ = game.reset()
     walkthrough = game.clean_walkthrough()
-    states = []
-    actions = []
-    rewards = []
     last_reward = 0
     for cmd in walkthrough:
-        print('命令：', cmd)
         game_state = game_state_from_game(game, need_worldmap=False, need_action_obs_pairs=False) # 注意这里如果bert输入不包含worldmap相关信息，那么编码时也不需要包含worldmap相关信息
-        states.append(game_state) # 注意这里如果bert输入不包含worldmap相关信息，那么编码时也不需要包含worldmap相关信息
-        actions.append(cmd)
+        admissible_commands = game_state.get_admissible_commands()
+        if cmd not in admissible_commands:
+            continue
+        q_values = agent.q_values([game_state] * len(admissible_commands), admissible_commands, target_q=True)
+        max_index = torch.argmax(q_values).item()
+        selected_command = admissible_commands[max_index]
+        q_values = q_values.tolist()
+        for cmd_temp, q in zip(admissible_commands, q_values):
+            important_mark = '' if cmd_temp != cmd else '!'
+            choosed_mark = '' if cmd_temp != selected_command else '>'
+            print(f"{important_mark}{choosed_mark}{cmd_temp}: {q:.4f}")
         _ = game.act(cmd)
-        rewards.append(game.accumulated_score() - last_reward)
-        last_reward = game.accumulated_score()
-    state = states[-2]
-    admissible_commands = state.get_admissible_commands()
-    best_command, info = agent.select_action(state, admissible_commands, need_more=True)
-    print(f"智能体选择的命令: {best_command}")
-    print(f"Q值列表: {info['q_values']}")
-    print(f"最佳命令索引: {info['best_index']}")
+        print('---')
+        # print(f"智能体选择的命令: {admissible_commands[max_index]}，Q值: {q_values[max_index]:.4f}")
