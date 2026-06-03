@@ -189,3 +189,6 @@ def test_trained_agent(q_net_path = None):
 def run():
     train(5000)
     test_trained_agent()
+
+if __name__ == "__main__":
+    run()
