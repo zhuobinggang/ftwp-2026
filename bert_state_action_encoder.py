@@ -112,6 +112,8 @@ class State_Action_Encoder:
         self.bert = init_bert_ours()
         self.bert.to(DEVICE)
         self.bert.eval() # 注意这里bert只用来编码，不进行训练，所以设置为eval模式
+        for param in self.bert.parameters():
+            param.requires_grad = False
     
     def encode(self, game_states: list[Game_state_clean], actions: list[str]):
         token_ids_list = []

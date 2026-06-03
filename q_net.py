@@ -1,5 +1,11 @@
 import torch
 import torch.nn as nn
+from datetime import datetime
+
+def get_time_str():
+    dt = datetime.now()
+    # %f 直接返回 6 位微秒数
+    return dt.strftime('%Y%m%d_%H%M%S_%f')
 
 class ChoiceTextQnet(nn.Module):
     def __init__(self, roberta_hidden_size=768, hidden_dim=256):
@@ -29,3 +35,16 @@ class ChoiceTextQnet(nn.Module):
         """
         q_values = self.mlp(cls_embeddings)
         return q_values # batch, 1
+    
+    def save_checkpoint(self, base_path = 'checkpoints/q_net'):
+        # path = f'{base_path}/{self.prefix}_epoch_{epoch}.pth'
+        path = f'{base_path}/q_net_{get_time_str()}.pth'
+        torch.save({
+            'state': self.state_dict(),
+        }, path)
+    def load_checkpoint(self, path):
+        # self.init_bert() # NOTE: 需要先初始化然后加载
+        checkpoint = torch.load(path, map_location='cpu', weights_only=True)
+        self.load_state_dict(checkpoint['state'])
+        # self.valid_score = checkpoint.get('valid_score', -1)
+        # self.stop_epoch = checkpoint.get('epoch', -1)
