@@ -43,6 +43,8 @@ if GAME_WITH_NAVIGATOR:
         TEMP_SAVE_DIR = "./checkpoints/cta_nav_cmdgen"
     else:
         TEMP_SAVE_DIR = "./checkpoints/cta_nav"
+    if common.GAME_RAW_COMMANDS:
+        TEMP_SAVE_DIR = "./checkpoints/cta_nav_cmdraw"
 else:
     TEMP_SAVE_DIR = "./checkpoints/cta_vanilla"
 print('设置模型存储路径为：', TEMP_SAVE_DIR)
