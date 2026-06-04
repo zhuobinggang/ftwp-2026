@@ -6,6 +6,7 @@ import pandas as pd
 from tqdm import tqdm
 from bert_utils import default_tokenizer, special_tokens_dict, EMPTY_RECIPE, EMPTY_INVENTORY
 from bert_utils import BertInput, command_indexs_tokenized, init_bert_ours, DEVICE, NextCommandResult
+from game_cmd_no_filter import Game_with_navigator_no_cmd_filter
 import torch
 from torch.utils.data import DataLoader, RandomSampler, TensorDataset
 from torch import nn, optim
@@ -53,6 +54,8 @@ if GAME_WITH_NAVIGATOR:
         GAME_INIT_FUNC = Game_command_generate_nav
     else:
         GAME_INIT_FUNC = Game_with_navigator
+    if common.GAME_RAW_COMMANDS:
+        GAME_INIT_FUNC = Game_with_navigator_no_cmd_filter
 else:
     if GAME_CMD_GENERATE:
         GAME_INIT_FUNC = Game_command_generate_vanilla

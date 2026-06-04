@@ -299,8 +299,24 @@ class Game_handle_worldmap(Game_move_action_augment):
             return directions_to_action(path)
     def reset(self):
         self.obs, self.info = super().reset()
-        self.worldMap[self.room] = {}
+        self.worldMap = {}
+        self.itemMap = {}
+        self.update_item_map() # 根据初始状态更新itemMap
         return self.obs, self.info
+    def update_item_map(self):
+        # 每一步根据recipe & 环境描述来更新itemList。item包含字段：room。
+        entities = self.info['entities']
+        # 去除east, west, north, south等方向词，避免误匹配
+        entities = [entity for entity in entities if entity not in common.DIRECTIONS]
+        for entity in entities:
+            if common.whole_word_inside(entity, self.info['description']):
+                if entity not in self.itemMap:
+                    self.itemMap[entity] = {'room': ''}
+                self.itemMap[entity]['room'] = self.room # setted in Game.act
+            if common.whole_word_inside(entity, self.info['inventory']):
+                if entity not in self.itemMap:
+                    self.itemMap[entity] = {'room': ''}
+                self.itemMap[entity]['room'] = 'inventory'
     def after_act_hook(self, action, obs): # after move action, update worldMap and itemMap
         action, obs = super().after_act_hook(action, obs)
         if action.startswith('go'):
@@ -315,20 +331,7 @@ class Game_handle_worldmap(Game_move_action_augment):
                 op_direction = common.get_opposite_direction(direction)
                 self.worldMap[prev_room][direction] = current_room
                 self.worldMap[current_room][op_direction] = prev_room
-            if True: # 更新itemMap
-                # 每一步根据recipe & 环境描述来更新itemList。item包含字段：room。
-                entities = self.info['entities']
-                # 去除east, west, north, south等方向词，避免误匹配
-                entities = [entity for entity in entities if entity not in common.DIRECTIONS]
-                for entity in entities:
-                    if common.whole_word_inside(entity, self.info['description']):
-                        if entity not in self.itemMap:
-                            self.itemMap[entity] = {'room': ''}
-                        self.itemMap[entity]['room'] = self.room # setted in Game.act
-                    if common.whole_word_inside(entity, self.info['inventory']):
-                        if entity not in self.itemMap:
-                            self.itemMap[entity] = {'room': ''}
-                        self.itemMap[entity]['room'] = 'inventory'
+        self.update_item_map() # Always update itemMap
         return action, obs
     def act(self, action): # 要代理navigate命令
         # 代理navigate命令，循环act goes

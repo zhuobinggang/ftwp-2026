@@ -6,6 +6,7 @@ import pandas as pd
 from tqdm import tqdm
 from functools import lru_cache
 from game import Game_with_navigator, Game_handle_worldmap
+from game_cmd_no_filter import Game_with_navigator_no_cmd_filter
 import common_new as common
 from common_new import COMMAND_LIST_SHUFFLE, GAME_WITH_NAVIGATOR
 import logging
@@ -19,13 +20,25 @@ TRAIN_PATH = f'{BASE_PATH}/train'
 TEST_PATH = f'{BASE_PATH}/test'
 VALID_PATH = f'{BASE_PATH}/valid'
 
-GAME_INIT_FUNC = Game_with_navigator if GAME_WITH_NAVIGATOR else Game_handle_worldmap
+if GAME_WITH_NAVIGATOR:
+    if common.GAME_RAW_COMMANDS:
+        GAME_INIT_FUNC = Game_with_navigator_no_cmd_filter
+        print('使用navigator并且不过滤指令')
+    else:
+        GAME_INIT_FUNC = Game_with_navigator
+        print('使用navigator并且过滤指令')
+else:
+    GAME_INIT_FUNC = Game_handle_worldmap
+    print('不使用navigator')
+
 OUTPUT_CSV_SUFFIX = '' # 2026.5.29 以后以文件夹区分是否使用navigator，csv文件不再区分后缀
 if GAME_WITH_NAVIGATOR:
     if common.GAME_CMD_GENERATE:
         CSV_PATH = f"good_dataset/cmd_gen"
     else:
         CSV_PATH = f"good_dataset/standard"
+    if common.GAME_RAW_COMMANDS:
+        CSV_PATH = f"good_dataset/raw_commands"
 else:
     if common.GAME_CMD_GENERATE:
         CSV_PATH = f"good_dataset/without_navigator_cmd_gen"
@@ -173,3 +186,6 @@ def run():
     random.seed(2026)
     create_csv_dataset(testing = True)
     create_csv_dataset(testing = False)
+
+if __name__ == '__main__':
+    run()

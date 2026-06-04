@@ -25,6 +25,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-test', '--test', action='store_true', help='Whether to run tests')
 parser.add_argument('-nav', '--navigator', action='store_true', help='Whether to use the navigator')
 parser.add_argument('-cgen', '--cmdgen', action='store_true', help='Whether to use command generate game and dataset')
+parser.add_argument('-rawcmd', '--rawcmd', action='store_true', help='Whether to use raw commands without filtering')
 args = parser.parse_args()
 if args.navigator:
     GAME_WITH_NAVIGATOR = True
@@ -38,6 +39,12 @@ if args.cmdgen:
 else:
     GAME_CMD_GENERATE = False
     print('Testing without command generation game and dataset...')
+if args.rawcmd:
+    GAME_RAW_COMMANDS = True
+    print('Testing with raw commands...')
+else:
+    GAME_RAW_COMMANDS = False
+    print('Testing with filtered commands...')
 # ^^^^
 
 def get_time_str():
