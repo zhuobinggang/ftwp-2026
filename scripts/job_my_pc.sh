@@ -1,3 +1,4 @@
+#!/bin/bash
 cd /home/zhuobinggang/research
 cd taku
 eval "$(./bin/micromamba shell activate -p ./ftwp_py310)"
