@@ -1,4 +1,5 @@
 #!/bin/bash
+#PBS -k doe -j oe
 cd /home/zhuobinggang/research
 cd taku
 eval "$(./bin/micromamba shell activate -p ./ftwp_py310)"
