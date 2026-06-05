@@ -299,8 +299,8 @@ class Game_handle_worldmap(Game_move_action_augment):
             return directions_to_action(path)
     def reset(self):
         self.obs, self.info = super().reset()
-        self.worldMap = {}
         self.itemMap = {}
+        self.worldMap[self.room] = {} # 必须在reset的时候就把初始房间加入worldMap，不然会报错
         self.update_item_map() # 根据初始状态更新itemMap
         return self.obs, self.info
     def update_item_map(self):
