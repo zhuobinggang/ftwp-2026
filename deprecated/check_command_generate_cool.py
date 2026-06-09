@@ -1,3 +1,5 @@
+# 确保生成的指令和过滤的指令几乎保持一致
+
 from dataset_create import get_cv_games
 import game_cmd_gen
 import game
