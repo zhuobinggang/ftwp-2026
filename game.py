@@ -361,7 +361,8 @@ class Game_handle_worldmap(Game_move_action_augment):
     def whole_map_explore(self):
         explore_directions = ['east', 'south', 'west', 'north']
         taken_directions = []
-        print('初始房间: ', self.room)
+        # print('初始房间: ', self.room)
+        steps_count = 0
         while True:
             entered_new_room = False
             for direction in explore_directions:
@@ -370,22 +371,25 @@ class Game_handle_worldmap(Game_move_action_augment):
                 elif 'go ' + direction not in self.get_admissible_commands():
                     continue
                 else:
-                    self.act('go ' + direction)
+                    _ = self.act('go ' + direction)
                     taken_directions.append(direction)
-                    print(f'探索方向: {direction}, 当前房间: {self.room}')
+                    # print(f'探索方向: {direction}, 当前房间: {self.room}')
                     entered_new_room = True
+                    steps_count += 1
                     break
             if not entered_new_room:
                 # 所有方向探索过了，原路返回
                 if len(taken_directions) == 0:
-                    print('全地图探索完成，当前房间: ', self.room)
+                    # print('全地图探索完成，当前房间: ', self.room)
                     break
                 else:
                     last_direction = taken_directions.pop()
                     opposite_direction = common.get_opposite_direction(last_direction)
                     action = 'go ' + opposite_direction
-                    self.act(action)
-                    print(f'返回方向: {opposite_direction}, 当前房间: {self.room}')
+                    _ = self.act(action)
+                    steps_count += 1
+                    # print(f'返回方向: {opposite_direction}, 当前房间: {self.room}')
+        return steps_count
 
 
 # NOTE: 2026.5.19 直接继承Game_handle_worldmap

@@ -14,7 +14,7 @@ from tqdm import tqdm
 import numpy as np
 logger = logging.getLogger(__name__)
 
-def test_game(ga: Game_with_navigator_no_cmd_filter, 
+def test_game_after_whole_map_explore(ga: Game_with_navigator_no_cmd_filter, 
               model = game.Fake_model(), 
               max_step = 100, 
               need_print = False):
@@ -31,6 +31,9 @@ def test_game(ga: Game_with_navigator_no_cmd_filter,
     # TODO: 在这里插入全地图探索
     counter = 0
     final_action = ''
+    counter += ga.whole_map_explore()
+    _ = ga.act('navigate to Kitchen')
+    _ = ga.act('examine cookbook')
     while counter < max_step:
         action = model.predict(game.game_state_from_game(ga))
         prev_moves = ga.info['moves']
@@ -57,7 +60,7 @@ def valid_all(model: agent_cta.Model_ucb1, split = 'fake_test_10', game_init_fun
     logger.debug(f'Validating {split} games, total {len(game_paths)}')
     for game_path in tqdm(game_paths, desc=f"Validating {split} games"):
         game = game_init_func(game_path)
-        result = test_game(game, model, max_step=100)
+        result = test_game_after_whole_map_explore(game, model, max_step=100)
         score += result.score
         max_score += result.max_score
         steps.append(result.step)
