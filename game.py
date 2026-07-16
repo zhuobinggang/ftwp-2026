@@ -2,7 +2,7 @@
 # 使用Game_with_navigator作为基础类，能够执行navigate命令，并且生成navigate指令在available commands中
 import random
 import common_new as common
-import textworld.gym
+# import textworld.gym
 from textworld import EnvInfos, gym
 from functools import lru_cache
 from recordclass import recordclass
@@ -22,7 +22,7 @@ def init_env(game_file):
                                entities=True, max_score=True, won=True, score=True,
                                moves = True,
                                lost=True, extras=["walkthrough"]) # 注意，取不到recipe，只能从obs中获取
-    env_id = textworld.gym.register_games([game_file], requested_infos, max_episode_steps = MAX_STEP)
+    env_id = gym.register_games([game_file], requested_infos, max_episode_steps = MAX_STEP)
     env = gym.make(env_id)
     return env
 
