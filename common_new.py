@@ -514,7 +514,7 @@ def all_paths_with_suffix(folder_path, suffix):
         if filename.endswith(suffix):  # 只处理指定后缀的文件
             file_path = os.path.join(folder_path, filename)
             results.append(file_path)
-    return results
+    return sorted(results) # 20261013: 排序，确保每次生成的csv数据集顺序一致，方便对比
 
 def get_writer(base_log_dir="runs"):
     import time

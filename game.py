@@ -351,7 +351,7 @@ class Game_handle_worldmap(Game_move_action_augment):
                 print(self.itemMap)
                 raise ValueError(f'Entity or room {entity_or_room} not found in itemMap or worldMap.')
             if prev_room == target_room:
-                print(f'Already in {target_room}, no need to execute {action}. 可能是循环导航。')
+                # print(f'Already in {target_room}, no need to execute {action}. 可能是循环导航。')
                 logger.warning(f'Already in {target_room}, no need to execute {action}.可能是循环导航。')
             else:
                 for temp_action in path: # 导航到目标房间

@@ -2,7 +2,7 @@
 # 是否需要对training walkthrough重写？可以将examine cookbook之前的部分全部包揽
 # 不重写也可以
 # 游戏使用game_cmd_no_filter，checkpoints使用cta_nav_cmdraw
-# 
+# 2026.7.31 补充说明实验结果：性能没有提高，可能需要对训练数据进行相应修改
 
 from game_cmd_no_filter import Game_with_navigator_no_cmd_filter
 import game
