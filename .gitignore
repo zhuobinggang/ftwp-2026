@@ -10,3 +10,4 @@ twc_games
 *\.pth
 \.~*
 runs/
+temp/
