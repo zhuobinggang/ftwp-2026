@@ -10,7 +10,6 @@ from game import Game_handle_worldmap
 from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
 import torch
-from game import Game_state_clean
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 from torch import nn, optim
@@ -144,6 +143,26 @@ class TextClassificationDataset(Dataset):
             item['token_type_ids'] = encoding['token_type_ids'].squeeze(0)
 
         return item
+
+class Game_state_clean():
+    def __init__(self):
+        self.recipe_good = ''
+        self.inventory_good = ''
+        self.description_good = ''
+        self.available_commands_good = []
+        self.accumulated_score_good = 0
+    def recipe_clean(self):
+        return self.recipe_good
+    def inventory_clean(self):
+        return self.inventory_good
+    def description_clean(self):
+        return self.description_good
+    def filtered_available_commands(self):
+        return self.available_commands_good
+    def get_admissible_commands(self):
+        return self.available_commands_good
+    def accumulated_score(self):
+        return self.accumulated_score_good
 
 
 # 只用于从csv的行转换成game_state
