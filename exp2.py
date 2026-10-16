@@ -245,12 +245,12 @@ def run_test(model, tokenizer, tests):
         return
     y_true = []
     y_pred = []
-    tests_flat = [x for game in tests for x in game]  # 展开每个游戏的所有数据
-    for i, test_case in enumerate(tqdm(tests_flat, desc="Testing")):
+    # tests_flat = [x for game in tests for x in game]  # 展开每个游戏的所有数据
+    for i, test_case in enumerate(tqdm(tests, desc="Testing")):
         prompt_a = test_case['prompt_a']
         prompt_b = test_case['prompt_b']
         label = test_case['label']
-        cmd = test_case['cmd']
+        # cmd = test_case['cmd']
         score = predict(model, tokenizer, prompt_a, prompt_b)
         predicted_label = 1 if score >= 0.5 else 0
         y_true.append(label)
