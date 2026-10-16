@@ -229,12 +229,12 @@ def predict(model, tokenizer, prompt_a, prompt_b, max_length=480):
 
     return score
 
-def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=4, lr=2e-5, max_length=480):
+def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=4, lr=2e-5, max_length=480, negative_size=5):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
     model.to(device)
 
-    prompt_label_dics = prompt_label_dic_generate(df_datas, negative_size=5)
+    prompt_label_dics = prompt_label_dic_generate(df_datas, negative_size=negative_size)
     dataset = TextClassificationDataset(prompt_label_dics, tokenizer, max_length=max_length)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
@@ -302,10 +302,10 @@ def load_model(save_directory, target_device=None):
 ### 数据集准备就绪，准备训练，准备一个简单的模型
 def example_train_test():
     df_trains, df_tests = get_trains_and_tests()
-    data_trains = prompt_label_dic_generate(df_trains, negative_size=5)
+    # data_trains = prompt_label_dic_generate(df_trains, negative_size=5)
     data_tests = prompt_label_dic_generate(df_tests, negative_size=5)
     print('数据集生成完成')
-    model, tokenizer = train(df_trains)
+    model, tokenizer = train(df_trains, negative_size=5)
     y_true, y_pred = run_test(model, tokenizer, data_tests)
     from sklearn.metrics import f1_score, precision_score, recall_score
     f1 = f1_score(y_true, y_pred)
@@ -337,8 +337,8 @@ class Model():
         self.bert = None
         self.tokenizer = None
         self.valid_score = -1
-    def init_bert(self):
-        model, tokenizer = load_model('./temp/model_900_games')
+    def init_bert(self, model_folder = './temp/model_900_games'):
+        model, tokenizer = load_model(model_folder)
         self.bert = model
         self.tokenizer = tokenizer
         self.valid_score = -1

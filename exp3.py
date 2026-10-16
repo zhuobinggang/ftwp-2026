@@ -1,0 +1,69 @@
+"""
+[:900]训练集合在完整测试集上的结果:
+Average steps: 27.955252918287936
+Norm score: 0.35487731897067626
+"""
+
+from exp2 import *
+
+def get_trains_and_tests():
+    cache_dir = "temp"
+    train_cache_path = os.path.join(cache_dir, "trains_all.pkl")
+    test_cache_path = os.path.join(cache_dir, "tests_all.pkl")
+
+    # 1. 检查本地缓存是否存在
+    if os.path.exists(train_cache_path) and os.path.exists(test_cache_path):
+        print(f"Loading cached datasets from {train_cache_path} and {test_cache_path}...")
+        df_trains = pd.read_pickle(train_cache_path)
+        df_tests = pd.read_pickle(test_cache_path)
+        return df_trains, df_tests
+
+    # 2. 缓存缺失时重新生成
+    print("Cache not found. Extracting walkthrough datasets (this may take 3-5 mins)...")
+    trains = get_cv_games(split='train')
+    tests = get_cv_games(split='test')
+
+    df_trains = extract_walkthrough_dataset(trains)
+    df_tests = extract_walkthrough_dataset(tests)
+
+    # 3. 自动创建目录并保存
+    os.makedirs(cache_dir, exist_ok=True)
+    df_trains.to_pickle(train_cache_path)
+    df_tests.to_pickle(test_cache_path)
+    print(f"Datasets cached to {train_cache_path} and {test_cache_path}.")
+
+    return df_trains, df_tests
+
+def example_train_test():
+    df_trains, df_tests = get_trains_and_tests()
+    model, tokenizer = train(df_trains, negative_size=5)
+    data_tests = prompt_label_dic_generate(df_tests, negative_size=5)
+    y_true, y_pred = run_test(model, tokenizer, data_tests)
+    from sklearn.metrics import f1_score, precision_score, recall_score
+    f1 = f1_score(y_true, y_pred)
+    precision = precision_score(y_true, y_pred)
+    recall = recall_score(y_true, y_pred)
+    print(f"F1 Score: {f1:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
+    save_model(model, tokenizer, save_directory="./temp/model_4440_games")
+
+
+def example_run_test():
+    model = Model_ucb1()
+    model.init_bert(model_folder="./temp/model_4440_games")
+    tests = get_cv_games(split='test')
+    steps = []
+    scores = []
+    max_scores = []
+    for game_path in tests:
+        game = Game_handle_worldmap(game_path)
+        result = test_game(game, model, max_step=100, need_print=False)
+        steps.append(result.step)
+        scores.append(result.score)
+        max_scores.append(result.max_score)
+    print(f'Average steps: {sum(steps) / len(steps)}')
+    print(f'Norm score: {sum(scores) / sum(max_scores)}')
+
+
+if __name__ == "__main__":
+    example_train_test()
+    example_run_test()
