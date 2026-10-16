@@ -16,6 +16,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 from torch import nn, optim
 import numpy as np
 from recordclass import recordclass
+import copy
 
 
 def get_clean_clean_walkthrough(game_path):
@@ -434,12 +435,21 @@ class Model_ucb1(Model):
         return best_action
 
 
+class Game_state_clean_with_worldmap(Game_state_clean):
+    def __init__(self):
+        super().__init__()
+        self.worldMap = {}
+        self.itemMap = {}
+
 def game_state_from_game(game: Game_handle_worldmap, need_worldmap = True, need_action_obs_pairs = True):
-    game_state = Game_state_clean()
+    game_state = Game_state_clean_with_worldmap()
     game_state.recipe_good = game.recipe_clean()
     game_state.inventory_good = game.inventory_clean()
     game_state.description_good = game.description_clean()
     game_state.available_commands_good = game.get_admissible_commands().copy()
+    if need_worldmap:
+        game_state.worldMap = copy.deepcopy(game.worldMap)
+        game_state.itemMap = copy.deepcopy(game.itemMap)
     game_state.room = game.room
     if need_action_obs_pairs:
         game_state.action_obs_pairs = game.action_obs_pairs.copy()
