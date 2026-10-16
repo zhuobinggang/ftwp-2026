@@ -11,8 +11,11 @@ from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
 import torch
 from game import Game_state_clean
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AdamW
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+from torch import nn, optim
+
+
 
 def get_clean_clean_walkthrough(game_path):
     game = Game_handle_worldmap(game_path)
@@ -149,8 +152,6 @@ def row_to_game_state(row):
     game_state.recipe_good = row['recipe']
     game_state.inventory_good = row['inventory']
     game_state.available_commands_good = row['admissible_commands']
-    #if common.COMMAND_LIST_SHUFFLE: # NOTE: 2026.5.24 数据集生成的时候已经打乱过了，不需要再打乱
-    #    random.shuffle(game_state.available_commands_good)
     game_state.description_good = row['description']
     return game_state
 
@@ -171,7 +172,6 @@ def get_prompt_label_dic(state: Game_state_clean, command: str, label: int):
     prompt_b = f"next command: {command}"
     return {'prompt_a': prompt_a, 'prompt_b': prompt_b, 'label': label}
 
-@lru_cache(maxsize=1)
 def prompt_label_dic_generate(df_datas, negative_size = 0): # 实时生成negative samples，返回dataloader
     csv = df_datas
     csv = csv.sample(frac=1) # 打乱
@@ -208,7 +208,7 @@ def predict(model, tokenizer, prompt_a, prompt_b, max_length=480):
 
     return score
 
-def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=8, lr=2e-5, max_length=480):
+def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=4, lr=2e-5, max_length=480):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
     model.to(device)
@@ -216,7 +216,7 @@ def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=8
     prompt_label_dics = prompt_label_dic_generate(df_datas, negative_size=5)
     dataset = TextClassificationDataset(prompt_label_dics, tokenizer, max_length=max_length)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    optimizer = AdamW(model.parameters(), lr=lr)
+    optimizer = optim.AdamW(model.parameters(), lr=lr)
 
     model.train()
     for epoch in range(epochs):
@@ -257,6 +257,27 @@ def run_test(model, tokenizer, tests):
         y_pred.append(predicted_label)
     return y_true, y_pred
 
+
+# ==========================================
+# 4. 保存与加载
+# ==========================================
+def save_model(model, tokenizer, save_directory):
+    os.makedirs(save_directory, exist_ok=True)
+    model.save_pretrained(save_directory)
+    tokenizer.save_pretrained(save_directory)
+    print(f"模型和 Tokenizer 已成功保存至: {save_directory}")
+
+def load_model(save_directory, target_device=None):
+    if target_device is None:
+        target_device = device
+    
+    # 无论是从 BERT 还是 RoBERTa 保存的目录，Auto 类都会读取 config.json 自动恢复原架构
+    tokenizer = AutoTokenizer.from_pretrained(save_directory)
+    model = AutoModelForSequenceClassification.from_pretrained(save_directory)
+    model.to(target_device)
+    model.eval()
+    return model, tokenizer
+
 ### 数据集准备就绪，准备训练，准备一个简单的模型
 def main():
     df_trains, df_tests = get_trains_and_tests()
@@ -264,3 +285,9 @@ def main():
     data_tests = prompt_label_dic_generate(df_tests, negative_size=5)
     model, tokenizer = train(df_trains)
     y_true, y_pred = run_test(model, tokenizer, data_tests)
+    from sklearn.metrics import f1_score, precision_score, recall_score
+    f1 = f1_score(y_true, y_pred)
+    precision = precision_score(y_true, y_pred)
+    recall = recall_score(y_true, y_pred)
+    print(f"F1 Score: {f1:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
+    save_model(model, tokenizer, save_directory="./temp/model_900_games")
