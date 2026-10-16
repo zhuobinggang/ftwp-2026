@@ -512,7 +512,7 @@ def example_run_test():
     max_scores = []
     for game_path in tests:
         game = Game_handle_worldmap(game_path)
-        result = test_game(game, model, max_step=100, need_print=True)
+        result = test_game(game, model, max_step=100, need_print=False)
         steps.append(result.step)
         scores.append(result.score)
         max_scores.append(result.max_score)
