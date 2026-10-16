@@ -14,7 +14,8 @@ from game import Game_state_clean
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 from torch import nn, optim
-
+import numpy as np
+from recordclass import recordclass
 
 
 def get_clean_clean_walkthrough(game_path):
@@ -279,10 +280,11 @@ def load_model(save_directory, target_device=None):
     return model, tokenizer
 
 ### 数据集准备就绪，准备训练，准备一个简单的模型
-def main():
+def example_train_test():
     df_trains, df_tests = get_trains_and_tests()
     data_trains = prompt_label_dic_generate(df_trains, negative_size=5)
     data_tests = prompt_label_dic_generate(df_tests, negative_size=5)
+    print('数据集生成完成')
     model, tokenizer = train(df_trains)
     y_true, y_pred = run_test(model, tokenizer, data_tests)
     from sklearn.metrics import f1_score, precision_score, recall_score
@@ -291,3 +293,199 @@ def main():
     recall = recall_score(y_true, y_pred)
     print(f"F1 Score: {f1:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
     save_model(model, tokenizer, save_directory="./temp/model_900_games")
+
+print('参考example_train_test()进行训练和测试（非正式运行）')
+
+
+def predict_by_game_state(model, tokenizer, game_state: Game_state_clean):
+    # 将game_state转换为复数prompt_a和prompt_b，然后取分数最高的那个动作作为最终动作
+    prompt_dic = get_prompt_label_dic(game_state, 'dummy_command', 0) # NOTE: 这里的label是无关紧要的
+    prompt_dics = []
+    for command in game_state.get_admissible_commands():
+        temp_dic = prompt_dic.copy()
+        temp_dic['prompt_b'] = f"next command: {command}"
+        temp_dic['cmd'] = command
+        prompt_dics.append(temp_dic)
+    results = []
+    for dic in prompt_dics:
+        score = predict(model, tokenizer, dic['prompt_a'], dic['prompt_b'])
+        results.append({'cmd': dic['cmd'], 'score': score})
+    return results
+
+class Model():
+    def __init__(self):
+        self.bert = None
+        self.tokenizer = None
+        self.valid_score = -1
+    def init_bert(self):
+        model, tokenizer = load_model('./temp/model_900_games')
+        self.bert = model
+        self.tokenizer = tokenizer
+        self.valid_score = -1
+    def predict(self, game_state: Game_state_clean): # @return: action
+        cmd_scores = predict_by_game_state(self.bert, self.tokenizer, game_state)
+        best_action = max(cmd_scores, key=lambda x: x['score'])['cmd']
+        return best_action
+
+def game_state_to_ucb1_key(game_state: Game_state_clean):
+    recipe_got = True if game_state.recipe_clean() else False
+    return f'Room: {game_state.room}\nInventory: {game_state.inventory_clean()}\nRecipe: {recipe_got}'
+
+def ucb1(action_cnt, total_cnt):
+    if action_cnt == 0:
+        return 5
+    else:
+        return np.sqrt(2*np.log(total_cnt)/action_cnt) # 如果total_cnt=10, action_cnt=1，值大概为2.15，总之都不会比2.5大的感觉。
+
+def maxmin_norm(p): # 返回0-1之间的值
+    return (p - p.min())/(p.max() - p.min())
+
+def choose_action_ubc1(cmd_scores, action_visited_count, alpha=1):
+    """
+    :param logits: vector with logits for actions
+    :param sacnt: vector with counts for each visit of the action
+    :returns: action number
+    """
+    logits = torch.tensor([x['score'] for x in cmd_scores]).cuda()
+    total_visits = sum(action_visited_count) # 该状态下所有行动的执行次数
+    uscore = [alpha*ucb1(v, total_visits) for v in action_visited_count] # 加权分
+    ssc = maxmin_norm(logits) + torch.tensor(uscore).cuda() # 如果所有指令都没有访问过，那么所有指令的分数都是5，很公平。如果指令被访问过，那么logits几乎不影响它的分数 -> 意味着模型会优先选择没有访问过的指令
+    return ssc.argmax(), ssc.softmax(dim=0)
+
+DANGER_FILTER_ON = False
+class Model_ucb1(Model):
+    def __init__(self):
+        super().__init__()
+        self.reset_state_action_count()
+    def incresase_state_action_count(self, key, action):
+        self.state_action_count[key][action] += 1
+    def get_state_action_count(self, key, action):
+        if key not in self.state_action_count:
+            self.state_action_count[key] = {}
+        if action not in self.state_action_count[key]:
+            self.state_action_count[key][action] = 0
+        return self.state_action_count[key][action]
+    def reset_state_action_count(self, room_name = ''):
+        self.state_action_count = {} # 记录每个状态下的动作选择次数
+    def reset_state_action_count_if_need(self, game_state: Game_state_clean):
+        action_obs_pairs = game_state.action_obs_pairs
+        if len(action_obs_pairs) == 0:
+            self.reset_state_action_count(game_state.room)
+        self.current_room = game_state.room # 总是要更新当前房间，但是在更新之前需要先更新世界地图（如果有必要）
+    def calculated_state_action_count(self, game_state: Game_state_clean, actions):
+        # NOTE: 使用move_action_mask来促进模型探索新的房间
+        state_key = game_state_to_ucb1_key(game_state)
+        state_action_executed_count = [self.get_state_action_count(state_key, action) for action in actions]
+        # 通过mask来屏蔽掉已经知道的房间
+        state_action_executed_count_mask = [0] * len(actions)
+        all_direction_known = True
+        room_object = game_state.worldMap[game_state.room]
+        direction_count = 0
+        for idx, (action, executed_count) in enumerate(zip(actions, state_action_executed_count)):
+            if action.startswith('go '):
+                direction_count += 1
+                direction = action.replace('go ', '')
+                # dbg(f'Room {game_state.room} Dcirection {direction} exist, executed {executed_count} times.')
+                if direction not in room_object: # 未知房间
+                    all_direction_known = False
+                    # dbg(f'Room {game_state.room} Dcirection {direction} unknown.')
+                elif executed_count == 0: # 知道房间存在，但是没有真正执行过
+                    state_action_executed_count_mask[idx] = 1
+                    # dbg(f'Room {game_state.room} Dcirection {direction} known but never executed.')
+                else: # 知道房间存在，并且执行过
+                    # dbg(f'Room {getattr(room_object, direction)} known and already visited {executed_count} times.')
+                    pass
+        if all_direction_known: # 清空所有的已知房间的值
+            state_action_executed_count_mask = [0] * len(actions)
+            if direction_count > 0:
+                # logger.debug(f'All {direction_count} directions are known, resetting the mask.')
+                pass
+        masked_state_action_executed_count = [a + b for a, b in zip(state_action_executed_count, state_action_executed_count_mask)]
+        return masked_state_action_executed_count
+    def danger_action_mask(self, game_state: Game_state_clean, actions):
+        raise NotImplementedError('Should not be used in navigator only model!')
+        danger_action_mask = [0] * len(actions)
+        # NOTE: 2025.5.16 使用bert来判断危险指令
+        recip_text = game_state.recipe_clean().strip()
+        if recip_text == '':
+            return danger_action_mask
+        for idx, action in enumerate(actions):
+            prefix = action.split()[0]
+            if prefix in MAYBE_DANGER_COMMAND_PREFIX:
+                if use_bert_to_identify_danger_command(recip_text, action):
+                    # logger.debug(f'Action {action} is dangerous. I will mark it as executed.')
+                    danger_action_mask[idx] = 1
+        return danger_action_mask
+    def predict(self, game_state: Game_state_clean):
+        # NOTE: 更新世界地图(根据上一步动作的结果)，只要发生移动必须对链接进行更新
+        all_actions = game_state.get_admissible_commands() # NOTE: 必须确保get_admissible_commands返回的动作顺序和之前的动作顺序一致
+        self.reset_state_action_count_if_need(game_state)
+        masked_state_action_executed_count = self.calculated_state_action_count(game_state, all_actions)
+        if DANGER_FILTER_ON: # NOTE: 2025.5.16 使用bert来判断危险指令
+            danger_action_mask = self.danger_action_mask(game_state, all_actions)
+            masked_state_action_executed_count = [a + b for a, b in zip(masked_state_action_executed_count, danger_action_mask)]
+        # NOTE: 获取logits并使用ucb1算法选择动作
+        cmd_scores = predict_by_game_state(self.bert, self.tokenizer, game_state)
+        best_action_idx, action_prob = choose_action_ubc1(cmd_scores, masked_state_action_executed_count)
+        best_action = all_actions[best_action_idx]
+        state_key = game_state_to_ucb1_key(game_state)
+        self.incresase_state_action_count(state_key, best_action)
+        assert all_actions == game_state.get_admissible_commands()
+        return best_action
+
+
+def game_state_from_game(game: Game_handle_worldmap, need_worldmap = True, need_action_obs_pairs = True):
+    game_state = Game_state_clean()
+    game_state.recipe_good = game.recipe_clean()
+    game_state.inventory_good = game.inventory_clean()
+    game_state.description_good = game.description_clean()
+    game_state.available_commands_good = game.get_admissible_commands().copy()
+    game_state.room = game.room
+    if need_action_obs_pairs:
+        game_state.action_obs_pairs = game.action_obs_pairs.copy()
+    return game_state
+
+TestResult = recordclass('TestResult', 'step score max_score info')
+def test_game(game: Game_handle_worldmap, model: Model, max_step = 100, need_print = False):
+    # import game_for_llm
+    # max_step = 50 # 2025.8.28 实验用，实验结束后删除
+    # dbg('Testing: Model eval on, model cuda on.')
+    model.bert.eval()
+    model.bert.to(device)
+    obs, info = game.reset()
+    counter = 0
+    final_action = ''
+    while counter < max_step:
+        action = model.predict(game_state_from_game(game))
+        prev_moves = game.info['moves']
+        obs, reward, done, info = game.act(action)
+        if need_print:
+            print(f'{action} => {obs}')
+        current_moves = info['moves']
+        counter += max(1, current_moves - prev_moves) # 考虑到可能的多步行动（比如高级命令）
+        final_action = action
+        if done:
+            break
+    # result = (counter, info['score'], info['max_score'], info)
+    print(f'Game done: {info["score"]} / {info["max_score"]}, steps {counter}, won: {info["won"]}, lost: {info["lost"]}, path: {game.game_path}')
+    if info['lost']:
+        print(f'Game lost: final action: {final_action}')
+    result = TestResult(counter, info['score'], info['max_score'], info)
+    return result
+
+def example_run_test():
+    model = Model_ucb1()
+    model.init_bert()
+    train_games = get_cv_games(split='train')
+    tests = train_games[900:1000]
+    steps = []
+    scores = []
+    max_scores = []
+    for game_path in tests:
+        game = Game_handle_worldmap(game_path)
+        result = test_game(game, model, max_step=100, need_print=True)
+        steps.append(result.step)
+        scores.append(result.score)
+        max_scores.append(result.max_score)
+    print(f'Average steps: {sum(steps) / len(steps)}')
+    print(f'Norm score: {sum(scores) / sum(max_scores)}')
