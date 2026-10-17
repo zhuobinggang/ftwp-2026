@@ -82,14 +82,14 @@ def extract_walkthrough_dataset(train_game_paths):
 
 def get_trains_and_tests():
     cache_dir = "temp"
-    train_cache_path = os.path.join(cache_dir, "trains_900.pkl")
-    test_cache_path = os.path.join(cache_dir, "tests_100.pkl")
+    train_cache_path = os.path.join(cache_dir, "trains_900.feather")
+    test_cache_path = os.path.join(cache_dir, "tests_100.feather")
 
     # 1. 检查本地缓存是否存在
     if os.path.exists(train_cache_path) and os.path.exists(test_cache_path):
         print(f"Loading cached datasets from {train_cache_path} and {test_cache_path}...")
-        df_trains = pd.read_pickle(train_cache_path)
-        df_tests = pd.read_pickle(test_cache_path)
+        df_trains = pd.read_feather(train_cache_path)
+        df_tests = pd.read_feather(test_cache_path)
         return df_trains, df_tests
 
     # 2. 缓存缺失时重新生成
@@ -103,9 +103,11 @@ def get_trains_and_tests():
 
     # 3. 自动创建目录并保存
     os.makedirs(cache_dir, exist_ok=True)
-    df_trains.to_pickle(train_cache_path)
-    df_tests.to_pickle(test_cache_path)
+    df_trains.reset_index(drop=True).to_feather(train_cache_path)
+    df_tests.reset_index(drop=True).to_feather(test_cache_path)
     print(f"Datasets cached to {train_cache_path} and {test_cache_path}.")
+
+    return df_trains, df_tests
 
     return df_trains, df_tests
 
@@ -261,6 +263,7 @@ def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=4
 
 
 def run_test(model, tokenizer, tests):
+    model.eval()
     if model is None or tokenizer is None:
         print("模型未训练，请先运行 run_train()")
         return

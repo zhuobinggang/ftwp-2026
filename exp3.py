@@ -8,14 +8,15 @@ from exp2 import *
 
 def get_trains_and_tests():
     cache_dir = "temp"
-    train_cache_path = os.path.join(cache_dir, "trains_all.pkl")
-    test_cache_path = os.path.join(cache_dir, "tests_all.pkl")
+    # 后缀改为 .feather
+    train_cache_path = os.path.join(cache_dir, "trains_all.feather")
+    test_cache_path = os.path.join(cache_dir, "tests_all.feather")
 
     # 1. 检查本地缓存是否存在
     if os.path.exists(train_cache_path) and os.path.exists(test_cache_path):
         print(f"Loading cached datasets from {train_cache_path} and {test_cache_path}...")
-        df_trains = pd.read_pickle(train_cache_path)
-        df_tests = pd.read_pickle(test_cache_path)
+        df_trains = pd.read_feather(train_cache_path)
+        df_tests = pd.read_feather(test_cache_path)
         return df_trains, df_tests
 
     # 2. 缓存缺失时重新生成
@@ -28,8 +29,11 @@ def get_trains_and_tests():
 
     # 3. 自动创建目录并保存
     os.makedirs(cache_dir, exist_ok=True)
-    df_trains.to_pickle(train_cache_path)
-    df_tests.to_pickle(test_cache_path)
+    
+    # Feather 要求索引必须是默认的连续整数 RangeIndex
+    # reset_index 确保即使提取的数据包含非默认索引也不会抛错
+    df_trains.reset_index(drop=True).to_feather(train_cache_path)
+    df_tests.reset_index(drop=True).to_feather(test_cache_path)
     print(f"Datasets cached to {train_cache_path} and {test_cache_path}.")
 
     return df_trains, df_tests
