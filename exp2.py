@@ -160,9 +160,9 @@ class Game_state_clean():
     def description_clean(self):
         return self.description_good
     def filtered_available_commands(self):
-        return self.available_commands_good
+        return self.available_commands_good.copy()
     def get_admissible_commands(self):
-        return self.available_commands_good
+        return self.available_commands_good.copy()
     def accumulated_score(self):
         return self.accumulated_score_good
 
@@ -201,8 +201,9 @@ def prompt_label_dic_generate(df_datas, negative_size = 0): # 实时生成negati
     prompt_label_dics = []
     for row_idx, row in tqdm(csv.iterrows(), total=len(csv), desc="Dataset processing"):
         state = row_to_game_state(row) # NOTE: 2025.5.5 打乱以提高模型的泛化能力
+        all_actions = state.get_admissible_commands()
         if negative_size > 0:
-            all_negative_commands = [command for command in state.get_admissible_commands() if command != row['action']]
+            all_negative_commands = [command for command in all_actions if command != row['action']]
             negative_commands = random.sample(all_negative_commands, min(negative_size, len(all_negative_commands)))
             for command in negative_commands:
                 prompt_label_dics.append(get_prompt_label_dic(state, command, 0)) # negative sample
@@ -231,7 +232,7 @@ def predict(model, tokenizer, prompt_a, prompt_b, max_length=480):
 
     return score
 
-def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=4, lr=2e-5, max_length=480, negative_size=5):
+def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=8, lr=2e-5, max_length=480, negative_size=5):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
     model.to(device)
