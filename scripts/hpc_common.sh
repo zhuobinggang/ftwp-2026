@@ -21,5 +21,5 @@ UV_CACHE_DIR=/work/${LOGNAME}/.cache/uv
 export HF_HOME TORCH_HOME TRITON_CACHE_DIR UV_CACHE_DIR
 
 cd /work/zb023/micromamba
-eval "$(./bin/micromamba shell activate -p ./envs/torch_rocm72)"
+eval "$(./bin/micromamba shell activate -p ./envs/ftwp_py310)"
 cd /work/zb023/research/ftwp-2026
