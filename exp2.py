@@ -111,7 +111,6 @@ def get_trains_and_tests():
 
     return df_trains, df_tests
 
-# TODO: 待完成
 class TextClassificationDataset(Dataset):
     def __init__(self, prompt_label_dics, tokenizer, max_length=256):
         self.tokenizer = tokenizer
@@ -232,7 +231,7 @@ def predict(model, tokenizer, prompt_a, prompt_b, max_length=480):
 
     return score
 
-def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=8, lr=2e-5, max_length=480, negative_size=5):
+def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=16, lr=2e-5, max_length=480, negative_size=5):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
     model.to(device)
@@ -377,6 +376,7 @@ def choose_action_ubc1(cmd_scores, action_visited_count, alpha=1):
     return ssc.argmax(), ssc.softmax(dim=0)
 
 DANGER_FILTER_ON = False
+PRINT_CMD_SCORE = False
 class Model_ucb1(Model):
     def __init__(self):
         super().__init__()
@@ -443,6 +443,8 @@ class Model_ucb1(Model):
     def predict(self, game_state: Game_state_clean):
         # NOTE: 更新世界地图(根据上一步动作的结果)，只要发生移动必须对链接进行更新
         all_actions = game_state.get_admissible_commands() # NOTE: 必须确保get_admissible_commands返回的动作顺序和之前的动作顺序一致
+        if len(all_actions) == 0:
+            return ''
         self.reset_state_action_count_if_need(game_state)
         masked_state_action_executed_count = self.calculated_state_action_count(game_state, all_actions)
         if DANGER_FILTER_ON: # NOTE: 2025.5.16 使用bert来判断危险指令
@@ -450,12 +452,20 @@ class Model_ucb1(Model):
             masked_state_action_executed_count = [a + b for a, b in zip(masked_state_action_executed_count, danger_action_mask)]
         # NOTE: 获取logits并使用ucb1算法选择动作
         cmd_scores = predict_by_game_state(self.bert, self.tokenizer, game_state)
+        # TODO: 打印
+        if PRINT_CMD_SCORE:
+            print_cmd_scores(cmd_scores, game_state)
         best_action_idx, action_prob = choose_action_ubc1(cmd_scores, masked_state_action_executed_count)
         best_action = all_actions[best_action_idx]
         state_key = game_state_to_ucb1_key(game_state)
         self.incresase_state_action_count(state_key, best_action)
         assert all_actions == game_state.get_admissible_commands()
         return best_action
+
+def print_cmd_scores(cmd_scores, game_state: Game_state_clean):
+    print(f"Room: {game_state.room}\nInventory: {game_state.inventory_clean()}\nRecipe: {game_state.recipe_clean()}")
+    for cmd_score in cmd_scores:
+        print(f"Command: {cmd_score['cmd']}, Score: {cmd_score['score']:.4f}")
 
 
 class Game_state_clean_with_worldmap(Game_state_clean):
@@ -490,6 +500,11 @@ def test_game(game: Game_handle_worldmap, model: Model, max_step = 100, need_pri
     final_action = ''
     while counter < max_step:
         action = model.predict(game_state_from_game(game))
+        if action == '':
+            print(f'No admissible commands available, stopping the game.')
+            final_action = 'No admissible commands available'
+            info['lost'] = True
+            break
         prev_moves = game.info['moves']
         obs, reward, done, info = game.act(action)
         if need_print:
