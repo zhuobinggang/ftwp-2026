@@ -231,7 +231,23 @@ def predict(model, tokenizer, prompt_a, prompt_b, max_length=480):
 
     return score
 
-def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=16, lr=2e-5, max_length=480, negative_size=5):
+def get_time_str():
+    from datetime import datetime
+    dt = datetime.now()
+    # %f 直接返回 6 位微秒数
+    return dt.strftime('%Y%m%d_%H%M%S_%f')
+
+def get_writer(base_log_dir="runs"):
+    import time
+    from tensorboardX import SummaryWriter
+    # 使用纳秒级时间戳
+    #timestamp = time.time_ns()
+    log_dir = os.path.join(base_log_dir, f'run_{get_time_str()}')
+    writer = SummaryWriter(log_dir=log_dir)
+    writer.global_step = 0
+    return writer
+
+def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=16, lr=2e-5, max_length=480, negative_size=5, log_interval=50):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
     model.to(device)
@@ -241,13 +257,15 @@ def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=1
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
 
+    # 1. 初始化 SummaryWriter
+    writer = get_writer()
+
     model.train()
     for epoch in range(epochs):
         total_loss = 0.0
         for batch in tqdm(dataloader, desc=f"Epoch {epoch + 1}/{epochs}"):
             optimizer.zero_grad()
 
-            # 将 batch 内所有张量推送到 GPU/CPU 并通过 **batch 传入
             inputs = {k: v.to(device) for k, v in batch.items()}
             outputs = model(**inputs)
 
@@ -255,10 +273,24 @@ def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=1
             loss.backward()
             optimizer.step()
 
-            total_loss += loss.item()
+            loss_val = loss.item()
+            total_loss += loss_val
+
+            # 2. 记录单 step 的训练 Loss（默认每 50 步记一次，避免 log 过大）
+            if writer.global_step % log_interval == 0:
+                writer.add_scalar('Train/Batch_Loss', loss_val, writer.global_step)
+            
+            # 步数递增
+            writer.global_step += 1
 
         avg_loss = total_loss / max(len(dataloader), 1)
         print(f"Epoch {epoch + 1}/{epochs} Loss: {avg_loss:.4f}")
+        
+        # 3. 记录每个 Epoch 的平均 Loss
+        writer.add_scalar('Train/Epoch_Loss', avg_loss, epoch + 1)
+
+    # 4. 训练结束，关闭 writer 释放文件句柄
+    writer.close()
     return model, tokenizer
 
 
