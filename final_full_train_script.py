@@ -1,22 +1,19 @@
-"""
-[:900]训练集合在完整测试集上的结果:
-Average steps: 27.955252918287936
-Norm score: 0.35487731897067626
-"""
-
-from exp2_mlm import *
+from final_vanilla_agent import *
 
 def get_trains_and_tests():
     cache_dir = "temp"
+    # 后缀改为 .feather
     train_cache_path = os.path.join(cache_dir, "trains_all.feather")
     test_cache_path = os.path.join(cache_dir, "tests_all.feather")
 
+    # 1. 检查本地缓存是否存在
     if os.path.exists(train_cache_path) and os.path.exists(test_cache_path):
         print(f"Loading cached datasets from {train_cache_path} and {test_cache_path}...")
         df_trains = pd.read_feather(train_cache_path)
         df_tests = pd.read_feather(test_cache_path)
         return df_trains, df_tests
 
+    # 2. 缓存缺失时重新生成
     print("Cache not found. Extracting walkthrough datasets (this may take 3-5 mins)...")
     trains = get_cv_games(split='train')
     tests = get_cv_games(split='test')
@@ -45,12 +42,12 @@ def example_train_test():
     precision = precision_score(y_true, y_pred)
     recall = recall_score(y_true, y_pred)
     print(f"F1 Score: {f1:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
-    save_model(model, tokenizer, save_directory="./temp/model_4440_games_mlm")
+    save_model(model, tokenizer, save_directory="./temp/model_4440_games")
 
 
 def example_run_test():
     model = Model_ucb1()
-    model.init_bert(model_folder="./temp/model_4440_games_mlm")
+    model.init_bert(model_folder="./temp/model_4440_games")
     tests = get_cv_games(split='test')
     steps = []
     scores = []

@@ -4,7 +4,7 @@ Average steps: 27.955252918287936
 Norm score: 0.35487731897067626
 """
 
-from exp3 import *
+from final_full_train_script import *
 
 def example_train_test():
     df_trains, df_tests = get_trains_and_tests()
