@@ -152,6 +152,8 @@ class Game_state_clean():
         self.description_good = ''
         self.available_commands_good = []
         self.accumulated_score_good = 0
+        self.room = ''
+        self.action_obs_pairs = []
     def recipe_clean(self):
         return self.recipe_good
     def inventory_clean(self):
@@ -247,7 +249,7 @@ def get_writer(base_log_dir="runs"):
     writer.global_step = 0
     return writer
 
-def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=16, lr=2e-5, max_length=480, negative_size=5, log_interval=50):
+def train(df_datas, model_name='FacebookAI/roberta-base', epochs=3, batch_size=16, lr=1e-5, max_length=480, negative_size=5, log_interval=50):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
     model.to(device)
