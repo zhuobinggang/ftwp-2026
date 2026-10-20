@@ -39,16 +39,16 @@ class Model_ucb1_naive(Model):
         for idx, action in enumerate(all_actions):
             executed_count = self.get_state_action_count(state_key, action)
             if executed_count > 0:
-                cmd_scores[idx] = -float('inf')
+                cmd_scores[idx]['score'] = -float('inf')
                 blocked_action_count += 1
         if blocked_action_count == len(all_actions):
             print('已经执行过所有的动作，无法选择新的动作，直接退出')
             return ''
         best_action_idx, action_prob = -1, 0.0
-        for idx, score in enumerate(cmd_scores):
-            if score > action_prob:
+        for idx, cmd_score in enumerate(cmd_scores):
+            if cmd_score['score'] > action_prob:
                 best_action_idx = idx
-                action_prob = score
+                action_prob = cmd_score['score']
         assert best_action_idx >= 0, f'No valid action found for game state: {game_state}'
         best_action = all_actions[best_action_idx]
         self.incresase_state_action_count(state_key, best_action)
